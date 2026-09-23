@@ -1,0 +1,80 @@
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
+import { User, UserDocument } from './schemas/user.schema';
+import { UserStatus } from '@saas/shared';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+
+@Injectable()
+export class UsersService {
+  constructor(
+    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+  ) {}
+
+  async findById(id: string): Promise<UserDocument | null> {
+    if (!Types.ObjectId.isValid(id)) {
+      return null;
+    }
+    return this.userModel.findById(id).exec();
+  }
+
+  async findByEmail(email: string): Promise<UserDocument | null> {
+    return this.userModel.findOne({ email: email.toLowerCase().trim() }).exec();
+  }
+
+  async create(userData: Partial<User>): Promise<UserDocument> {
+    const createdUser = new this.userModel({
+      ...userData,
+      email: userData.email?.toLowerCase().trim(),
+    });
+    return createdUser.save();
+  }
+
+  async updateProfile(id: string, dto: UpdateProfileDto): Promise<UserDocument> {
+    const user = await this.findById(id);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    if (dto.email && dto.email.toLowerCase().trim() !== user.email) {
+      const targetEmail = dto.email.toLowerCase().trim();
+      const existing = await this.findByEmail(targetEmail);
+      if (existing && existing._id.toString() !== user._id.toString()) {
+        throw new ConflictException('Email address is already in use by another account');
+      }
+      user.email = targetEmail;
+    }
+
+    if (dto.name && dto.name.trim()) {
+      user.name = dto.name.trim();
+    }
+
+    return user.save();
+  }
+
+  async updateStatus(id: string, status: UserStatus): Promise<UserDocument> {
+    const user = await this.userModel.findById(id);
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+
+    user.status = status;
+    return user.save();
+  }
+
+  async findAll(search?: string): Promise<UserDocument[]> {
+    const filter: any = {};
+    if (search && search.trim()) {
+      const term = search.trim();
+      filter.$or = [
+        { name: { $regex: term, $options: 'i' } },
+        { email: { $regex: term, $options: 'i' } },
+      ];
+    }
+    return this.userModel.find(filter).sort({ createdAt: -1 }).exec();
+  }
+
+  async count(filter: any = {}): Promise<number> {
+    return this.userModel.countDocuments(filter).exec();
+  }
+}

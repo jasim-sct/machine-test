@@ -1,0 +1,18 @@
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background-color: var(--color-bg-primary);
+
+  &__main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0; // Ensures children don't cause horizontal overflow
+  }
+
+  &__content {
+    flex: 1;
+    padding: var(--space-6);
+  }
+}
