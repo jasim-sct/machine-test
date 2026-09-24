@@ -17,6 +17,28 @@ export class Form {
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'FormVersion', default: null })
   deployedVersionId: string | null;
 
+  @Prop({
+    type: MongooseSchema.Types.Mixed,
+    default: () => ({
+      submissionLimit: null,
+      allowMultipleSubmissions: true,
+      successMessage: 'Thank you! Your response has been submitted successfully.',
+      redirectUrl: '',
+      closedMessage: 'This form is currently closed and not accepting new responses.',
+      isAcceptingSubmissions: true,
+      notifyOnSubmission: false,
+      notificationEmails: [],
+      webhookUrl: '',
+    }),
+  })
+  settings?: Record<string, any>;
+
+  @Prop({ type: Array, default: [] })
+  deployments?: any[];
+
+  @Prop({ type: Array, default: [] })
+  activities?: any[];
+
   createdAt?: Date;
   updatedAt?: Date;
 }

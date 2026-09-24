@@ -14,6 +14,7 @@ import { FormsService } from './forms.service';
 import { CreateFormDto } from './dto/create-form.dto';
 import { CreateVersionDto } from './dto/create-version.dto';
 import { UpdateVersionDto } from './dto/update-version.dto';
+import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { FormDto, FormVersionDto, FormDataViewDto } from '@saas/shared';
 
 @Controller('forms')
@@ -42,6 +43,15 @@ export class FormsController {
     return this.formsService.findOne(userId, formId);
   }
 
+  @Patch(':id/settings')
+  updateSettings(
+    @CurrentUser('id') userId: string,
+    @Param('id') formId: string,
+    @Body() dto: UpdateSettingsDto,
+  ): Promise<FormDto> {
+    return this.formsService.updateSettings(userId, formId, dto);
+  }
+
   @Get(':id/data')
   getDataView(
     @CurrentUser('id') userId: string,
@@ -57,6 +67,15 @@ export class FormsController {
     @Body() dto: CreateVersionDto,
   ): Promise<FormVersionDto> {
     return this.formsService.createVersion(userId, formId, dto);
+  }
+
+  @Post(':id/versions/:versionId/duplicate')
+  duplicateVersion(
+    @CurrentUser('id') userId: string,
+    @Param('id') formId: string,
+    @Param('versionId') versionId: string,
+  ): Promise<FormVersionDto> {
+    return this.formsService.duplicateVersion(userId, formId, versionId);
   }
 
   @Patch(':id/versions/:versionId')

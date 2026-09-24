@@ -38,6 +38,17 @@ export const formsService = {
     return api.post<FormDto>(`/forms/${id}/versions/${versionId}/deploy`);
   },
 
+  duplicateVersion: async (id: string, versionId: string): Promise<FormVersionDto> => {
+    return api.post<FormVersionDto>(`/forms/${id}/versions/${versionId}/duplicate`);
+  },
+
+  updateSettings: async (
+    id: string,
+    dto: { name?: string; settings?: any },
+  ): Promise<FormDto> => {
+    return api.patch<FormDto>(`/forms/${id}/settings`, dto);
+  },
+
   getDataView: async (id: string): Promise<FormDataViewDto> => {
     return api.get<FormDataViewDto>(`/forms/${id}/data`);
   },

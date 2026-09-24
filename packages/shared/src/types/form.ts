@@ -99,6 +99,41 @@ export interface FormVersionDto {
   updatedAt: string;
 }
 
+export interface FormSettingsDto {
+  submissionLimit?: number | null;
+  allowMultipleSubmissions?: boolean;
+  successMessage?: string;
+  redirectUrl?: string;
+  closedMessage?: string;
+  isAcceptingSubmissions?: boolean;
+  notifyOnSubmission?: boolean;
+  notificationEmails?: string[];
+  webhookUrl?: string;
+}
+
+export interface FormDeploymentDto {
+  id: string;
+  formId: string;
+  versionId: string;
+  versionNumber: number;
+  deployedAt: string;
+  deployedBy?: string;
+  isCurrent: boolean;
+  notes?: string;
+}
+
+export interface FormActivityDto {
+  id: string;
+  formId: string;
+  type: 'form_created' | 'version_created' | 'version_deployed' | 'field_updated' | 'submission_received' | 'settings_updated';
+  title: string;
+  description: string;
+  timestamp: string;
+  actor?: string;
+  versionNumber?: number;
+  metadata?: Record<string, any>;
+}
+
 export interface FormDto {
   id: string;
   name: string;
@@ -108,6 +143,10 @@ export interface FormDto {
   deployedVersion?: FormVersionDto | null;
   versions?: FormVersionDto[];
   versionsCount?: number;
+  submissionsCount?: number;
+  settings?: FormSettingsDto;
+  deployments?: FormDeploymentDto[];
+  activities?: FormActivityDto[];
   createdAt: string;
   updatedAt: string;
 }

@@ -13,6 +13,7 @@ import { FormSubmission, FormSubmissionDocument } from './schemas/form-submissio
 import { CreateFormDto } from './dto/create-form.dto';
 import { CreateVersionDto } from './dto/create-version.dto';
 import { UpdateVersionDto } from './dto/update-version.dto';
+import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { SubmitFormDto } from './dto/submit-form.dto';
 import {
   FormDto,
@@ -51,6 +52,17 @@ export class FormsService {
       userId: new Types.ObjectId(userId),
       publicId,
       deployedVersionId: null,
+      deployments: [],
+      activities: [
+        {
+          id: `act_${randomBytes(4).toString('hex')}`,
+          formId: '', // populated below
+          type: 'form_created',
+          title: 'Form created',
+          description: `Form "${dto.name.trim()}" was created with initial Draft v1.`,
+          timestamp: new Date().toISOString(),
+        },
+      ],
     });
 
     // Automatically create initial Draft v1 seeded with a realistic default form
@@ -64,6 +76,9 @@ export class FormsService {
       formLayout: seed.formLayout,
     });
 
+    form.activities[0].formId = form._id.toString();
+    await form.save();
+
     const formJson = form.toJSON();
     const versionJson = initialVersion.toJSON();
 
@@ -75,6 +90,10 @@ export class FormsService {
       deployedVersionId: null,
       deployedVersion: null,
       versionsCount: 1,
+      submissionsCount: 0,
+      settings: form.settings,
+      deployments: [],
+      activities: form.activities,
       versions: [
         {
           id: versionJson.id,
@@ -106,6 +125,7 @@ export class FormsService {
     for (const form of forms) {
       const formJson = form.toJSON();
       const versionsCount = await this.formVersionModel.countDocuments({ formId: form._id });
+      const submissionsCount = await this.formSubmissionModel.countDocuments({ formId: form._id });
 
       let deployedVersion: FormVersionDto | null = null;
       if (form.deployedVersionId) {
@@ -136,6 +156,10 @@ export class FormsService {
         deployedVersionId: form.deployedVersionId ? form.deployedVersionId.toString() : null,
         deployedVersion,
         versionsCount,
+        submissionsCount,
+        settings: form.settings,
+        deployments: form.deployments || [],
+        activities: form.activities || [],
         createdAt: formJson.createdAt?.toISOString?.() || new Date().toISOString(),
         updatedAt: formJson.updatedAt?.toISOString?.() || new Date().toISOString(),
       });
@@ -185,6 +209,89 @@ export class FormsService {
     });
 
     const deployedVersion = versionDtos.find((v) => v.isDeployed) || null;
+    const submissionsCount = await this.formSubmissionModel.countDocuments({ formId: form._id });
+
+    // Deployments
+    let deployments = form.deployments || [];
+    if (deployments.length === 0 && deployedVersion) {
+      deployments = [
+        {
+          id: `dep_${deployedVersion.id}`,
+          formId: formJson.id,
+          versionId: deployedVersion.id,
+          versionNumber: deployedVersion.versionNumber,
+          deployedAt: deployedVersion.updatedAt || deployedVersion.createdAt,
+          deployedBy: 'Workspace Member',
+          isCurrent: true,
+          notes: `Production deployment of Version ${deployedVersion.versionNumber}`,
+        },
+      ];
+    }
+
+    // Dynamic Activities Synthesis if stored activities are empty
+    let activities = form.activities || [];
+    if (activities.length === 0) {
+      const generatedActivities: any[] = [];
+
+      // 1. Form creation
+      generatedActivities.push({
+        id: `act_init_${formJson.id}`,
+        formId: formJson.id,
+        type: 'form_created',
+        title: 'Form created',
+        description: `Form "${formJson.name}" was created.`,
+        timestamp: formJson.createdAt?.toISOString?.() || new Date().toISOString(),
+      });
+
+      // 2. Versions
+      for (const v of versionDtos) {
+        generatedActivities.push({
+          id: `act_v_${v.id}`,
+          formId: formJson.id,
+          type: 'version_created',
+          title: `Draft Version ${v.versionNumber} created`,
+          description: `Version ${v.versionNumber} ("${v.title}") was created with ${v.elements.length} field(s).`,
+          timestamp: v.createdAt,
+          versionNumber: v.versionNumber,
+        });
+      }
+
+      // 3. Deployments
+      for (const d of deployments) {
+        generatedActivities.push({
+          id: `act_dep_${d.id}`,
+          formId: formJson.id,
+          type: 'version_deployed',
+          title: `Version ${d.versionNumber} deployed`,
+          description: `Version ${d.versionNumber} was published to production.`,
+          timestamp: d.deployedAt,
+          versionNumber: d.versionNumber,
+        });
+      }
+
+      // 4. Submissions (latest 5)
+      const recentSubs = await this.formSubmissionModel
+        .find({ formId: form._id })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .exec();
+      for (const s of recentSubs) {
+        generatedActivities.push({
+          id: `act_sub_${s.id}`,
+          formId: formJson.id,
+          type: 'submission_received',
+          title: 'New submission received',
+          description: 'A user submitted a response to the form.',
+          timestamp: s.createdAt?.toISOString?.() || new Date().toISOString(),
+        });
+      }
+
+      // Sort newest first
+      generatedActivities.sort(
+        (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      );
+      activities = generatedActivities;
+    }
 
     return {
       id: formJson.id,
@@ -195,6 +302,20 @@ export class FormsService {
       deployedVersion,
       versions: versionDtos,
       versionsCount: versionDtos.length,
+      submissionsCount,
+      settings: form.settings || {
+        submissionLimit: null,
+        allowMultipleSubmissions: true,
+        successMessage: 'Thank you! Your response has been submitted successfully.',
+        redirectUrl: '',
+        closedMessage: 'This form is currently closed and not accepting new responses.',
+        isAcceptingSubmissions: true,
+        notifyOnSubmission: false,
+        notificationEmails: [],
+        webhookUrl: '',
+      },
+      deployments,
+      activities,
       createdAt: formJson.createdAt?.toISOString?.() || new Date().toISOString(),
       updatedAt: formJson.updatedAt?.toISOString?.() || new Date().toISOString(),
     };
@@ -378,8 +499,154 @@ export class FormsService {
     // Set as the sole deployed version
     form.deployedVersionId = version._id as any;
     form.updatedAt = new Date();
+
+    // Record deployment history
+    const previousDeployments = (form.deployments || []).map((d: any) => ({
+      ...d,
+      isCurrent: false,
+    }));
+
+    const newDeployment = {
+      id: `dep_${randomBytes(4).toString('hex')}`,
+      formId: form._id.toString(),
+      versionId: version._id.toString(),
+      versionNumber: version.versionNumber,
+      deployedAt: new Date().toISOString(),
+      deployedBy: 'Workspace Member',
+      isCurrent: true,
+      notes: `Production release of Version ${version.versionNumber}`,
+    };
+
+    form.deployments = [newDeployment, ...previousDeployments];
+
+    // Add activity
+    const activity = {
+      id: `act_${randomBytes(4).toString('hex')}`,
+      formId: form._id.toString(),
+      type: 'version_deployed',
+      title: `Version ${version.versionNumber} deployed`,
+      description: `Version ${version.versionNumber} ("${version.title}") was published to production.`,
+      timestamp: new Date().toISOString(),
+      versionNumber: version.versionNumber,
+    };
+    form.activities = [activity, ...(form.activities || [])];
+
     await form.save();
 
+    return this.findOne(userId, formId);
+  }
+
+  async duplicateVersion(
+    userId: string,
+    formId: string,
+    versionId: string,
+  ): Promise<FormVersionDto> {
+    if (!Types.ObjectId.isValid(formId) || !Types.ObjectId.isValid(versionId)) {
+      throw new NotFoundException('Form or version not found');
+    }
+
+    const form = await this.formModel.findById(formId).exec();
+    if (!form) {
+      throw new NotFoundException('Form not found');
+    }
+
+    if (form.userId.toString() !== userId) {
+      throw new ForbiddenException('You do not have access to this form');
+    }
+
+    const sourceVersion = await this.formVersionModel.findOne({
+      _id: new Types.ObjectId(versionId),
+      formId: form._id,
+    });
+
+    if (!sourceVersion) {
+      throw new NotFoundException('Source version not found');
+    }
+
+    const latest = await this.formVersionModel
+      .findOne({ formId: form._id })
+      .sort({ versionNumber: -1 })
+      .exec();
+
+    const nextVersionNumber = (latest?.versionNumber || 0) + 1;
+
+    const newVersion = await this.formVersionModel.create({
+      formId: form._id,
+      versionNumber: nextVersionNumber,
+      title: `${sourceVersion.title} (Copy)`,
+      elements: JSON.parse(JSON.stringify(sourceVersion.elements || [])),
+      sections: JSON.parse(JSON.stringify(sourceVersion.sections || [])),
+      formLayout: sourceVersion.formLayout || 'column',
+      customCss: sourceVersion.customCss || '',
+    });
+
+    form.updatedAt = new Date();
+    const activity = {
+      id: `act_${randomBytes(4).toString('hex')}`,
+      formId: form._id.toString(),
+      type: 'version_created',
+      title: `Draft Version ${nextVersionNumber} created`,
+      description: `Cloned from Version ${sourceVersion.versionNumber}.`,
+      timestamp: new Date().toISOString(),
+      versionNumber: nextVersionNumber,
+    };
+    form.activities = [activity, ...(form.activities || [])];
+    await form.save();
+
+    const vJson = newVersion.toJSON();
+    return {
+      id: vJson.id,
+      formId: form._id.toString(),
+      versionNumber: vJson.versionNumber,
+      title: vJson.title,
+      elements: vJson.elements || [],
+      sections: vJson.sections || [],
+      formLayout: (vJson.formLayout as LayoutDirection) || 'column',
+      customCss: vJson.customCss || '',
+      isDeployed: false,
+      createdAt: vJson.createdAt?.toISOString?.() || new Date().toISOString(),
+      updatedAt: vJson.updatedAt?.toISOString?.() || new Date().toISOString(),
+    };
+  }
+
+  async updateSettings(
+    userId: string,
+    formId: string,
+    dto: UpdateSettingsDto,
+  ): Promise<FormDto> {
+    if (!Types.ObjectId.isValid(formId)) {
+      throw new NotFoundException('Form not found');
+    }
+
+    const form = await this.formModel.findById(formId).exec();
+    if (!form) {
+      throw new NotFoundException('Form not found');
+    }
+
+    if (form.userId.toString() !== userId) {
+      throw new ForbiddenException('You do not have access to this form');
+    }
+
+    if (dto.name && dto.name.trim()) {
+      form.name = dto.name.trim();
+    }
+
+    if (dto.settings) {
+      form.settings = { ...(form.settings || {}), ...dto.settings };
+    }
+
+    form.updatedAt = new Date();
+    const activity = {
+      id: `act_${randomBytes(4).toString('hex')}`,
+      formId: form._id.toString(),
+      type: 'settings_updated',
+      title: 'Form settings updated',
+      description: 'Form configuration and policy settings were updated.',
+      timestamp: new Date().toISOString(),
+    };
+    form.activities = [activity, ...(form.activities || [])];
+
+    await form.save();
     return this.findOne(userId, formId);
   }
 
@@ -443,6 +710,19 @@ export class FormsService {
       throw new BadRequestException('This form is not currently accepting submissions');
     }
 
+    if (form.settings?.isAcceptingSubmissions === false) {
+      throw new BadRequestException(
+        form.settings.closedMessage || 'This form is currently closed and not accepting new responses.',
+      );
+    }
+
+    if (form.settings?.submissionLimit && form.settings.submissionLimit > 0) {
+      const count = await this.formSubmissionModel.countDocuments({ formId: form._id });
+      if (count >= form.settings.submissionLimit) {
+        throw new BadRequestException('This form has reached its maximum submission limit.');
+      }
+    }
+
     const deployedVersion = await this.formVersionModel.findById(form.deployedVersionId).exec();
     if (!deployedVersion) {
       throw new BadRequestException('Deployed version not found');
@@ -500,6 +780,18 @@ export class FormsService {
       versionId: deployedVersion._id,
       data: dto.data || {},
     });
+
+    const subActivity = {
+      id: `act_${randomBytes(4).toString('hex')}`,
+      formId: form._id.toString(),
+      type: 'submission_received',
+      title: 'New submission received',
+      description: `Submission recorded for Version ${deployedVersion.versionNumber}.`,
+      timestamp: new Date().toISOString(),
+      versionNumber: deployedVersion.versionNumber,
+    };
+    form.activities = [subActivity, ...(form.activities || [])];
+    await form.save();
 
     const subJson = submission.toJSON();
     return {

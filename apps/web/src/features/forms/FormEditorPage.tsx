@@ -717,8 +717,9 @@ export const FormEditorPage: React.FC = () => {
           <button
             type="button"
             className="form-builder-app__back-btn"
-            onClick={() => navigate('/forms')}
-            title="Back to Forms"
+            onClick={() => navigate(id ? `/forms/${id}` : '/forms')}
+            title="Back to Form Details"
+            id="back-to-form-details-btn"
           >
             <span className="material-icon">arrow_back</span>
           </button>

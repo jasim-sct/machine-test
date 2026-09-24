@@ -180,20 +180,28 @@ export const FormsPage: React.FC = () => {
       render: (form: FormDto) => (
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
           <Button
-            variant="secondary"
+            variant="ghost"
             size="small"
-            onClick={() => navigate(`/forms/${form.id}/data`)}
+            onClick={() => navigate(`/forms/${form.id}?tab=data`)}
             id={`open-data-btn-${form.id}`}
           >
             Submissions
           </Button>
           <Button
-            variant="primary"
+            variant="secondary"
             size="small"
-            onClick={() => navigate(`/forms/${form.id}`)}
+            onClick={() => navigate(`/forms/${form.id}/edit`)}
             id={`open-editor-btn-${form.id}`}
           >
             Editor
+          </Button>
+          <Button
+            variant="primary"
+            size="small"
+            onClick={() => navigate(`/forms/${form.id}`)}
+            id={`open-detail-btn-${form.id}`}
+          >
+            Manage →
           </Button>
         </div>
       ),

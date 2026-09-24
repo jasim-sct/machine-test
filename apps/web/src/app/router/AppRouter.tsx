@@ -16,6 +16,7 @@ import { FormsPage } from '../../features/forms/FormsPage';
 import { FormEditorPage } from '../../features/forms/FormEditorPage';
 import { FormPreviewPage } from '../../features/forms/FormPreviewPage';
 import { FormDataPage } from '../../features/forms/FormDataPage';
+import { FormDetailPage } from '../../features/forms/detail/FormDetailPage';
 import { PublicFormPage } from '../../features/forms/PublicFormPage';
 import { NotFoundPage } from '../../features/misc/NotFoundPage';
 import { useAuth } from '../providers/AuthProvider';
@@ -88,7 +89,7 @@ export const AppRouter: React.FC = () => {
 
       {/* Dedicated Full-Screen Form Builder Workspace */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/forms/:id" element={<FormEditorPage />} />
+        <Route path="/forms/:id/edit" element={<FormEditorPage />} />
         <Route path="/forms/:id/preview" element={<FormPreviewPage />} />
       </Route>
 
@@ -97,6 +98,7 @@ export const AppRouter: React.FC = () => {
         <Route element={<UserLayout />}>
           <Route path="/dashboard" element={<UserDashboardPage />} />
           <Route path="/forms" element={<FormsPage />} />
+          <Route path="/forms/:id" element={<FormDetailPage />} />
           <Route path="/forms/:id/data" element={<FormDataPage />} />
         </Route>
       </Route>
