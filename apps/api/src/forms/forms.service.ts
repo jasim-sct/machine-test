@@ -11,12 +11,14 @@ import { Form, FormDocument } from './schemas/form.schema';
 import { FormVersion, FormVersionDocument } from './schemas/form-version.schema';
 import { FormSubmission, FormSubmissionDocument } from './schemas/form-submission.schema';
 import { CreateFormDto } from './dto/create-form.dto';
+import { UpdateDraftDto } from './dto/update-draft.dto';
 import { CreateVersionDto } from './dto/create-version.dto';
 import { UpdateVersionDto } from './dto/update-version.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { SubmitFormDto } from './dto/submit-form.dto';
 import {
   FormDto,
+  FormDraftDto,
   FormVersionDto,
   PublicFormDto,
   FormDataViewDto,
@@ -44,13 +46,73 @@ export class FormsService {
     return `f_${randomBytes(6).toString('hex')}`;
   }
 
+  private ensureDraft(form: FormDocument, fallbackVersions: FormVersionDocument[] = []): FormDraftDto {
+    if (form.draft && form.draft.title) {
+      return {
+        title: form.draft.title,
+        elements: form.draft.elements || [],
+        sections: form.draft.sections || [],
+        formLayout: (form.draft.formLayout as LayoutDirection) || 'column',
+        customCss: form.draft.customCss || '',
+        updatedAt: form.draft.updatedAt
+          ? new Date(form.draft.updatedAt).toISOString()
+          : form.updatedAt?.toISOString() || new Date().toISOString(),
+      };
+    }
+
+    // Fallback if legacy form without draft field
+    if (fallbackVersions.length > 0) {
+      const latest = fallbackVersions[fallbackVersions.length - 1];
+      const draft: FormDraftDto = {
+        title: latest.title,
+        elements: latest.elements || [],
+        sections: latest.sections || [],
+        formLayout: (latest.formLayout as LayoutDirection) || 'column',
+        customCss: latest.customCss || '',
+        updatedAt: latest.updatedAt?.toISOString() || new Date().toISOString(),
+      };
+      form.draft = {
+        ...draft,
+        updatedAt: new Date(draft.updatedAt || Date.now()),
+      };
+      return draft;
+    }
+
+    const seed = getRealisticDefaultForm(form.name);
+    const draft: FormDraftDto = {
+      title: form.name,
+      elements: seed.elements,
+      sections: seed.sections,
+      formLayout: seed.formLayout,
+      customCss: '',
+      updatedAt: new Date().toISOString(),
+    };
+    form.draft = {
+      ...draft,
+      updatedAt: new Date(),
+    };
+    return draft;
+  }
+
   async create(userId: string, dto: CreateFormDto): Promise<FormDto> {
     const publicId = this.generatePublicId();
+    const formName = dto.name.trim();
+    const seed = getRealisticDefaultForm(formName);
+
+    const initialDraft = {
+      title: formName,
+      elements: seed.elements,
+      sections: seed.sections,
+      formLayout: seed.formLayout,
+      customCss: '',
+      updatedAt: new Date(),
+    };
 
     const form = await this.formModel.create({
-      name: dto.name.trim(),
+      name: formName,
       userId: new Types.ObjectId(userId),
       publicId,
+      draft: initialDraft,
       deployedVersionId: null,
       deployments: [],
       activities: [
@@ -59,56 +121,39 @@ export class FormsService {
           formId: '', // populated below
           type: 'form_created',
           title: 'Form created',
-          description: `Form "${dto.name.trim()}" was created with initial Draft v1.`,
+          description: `Form "${formName}" was created with initial editable draft.`,
           timestamp: new Date().toISOString(),
         },
       ],
-    });
-
-    // Automatically create initial Draft v1 seeded with a realistic default form
-    const seed = getRealisticDefaultForm(dto.name.trim());
-    const initialVersion = await this.formVersionModel.create({
-      formId: form._id,
-      versionNumber: 1,
-      title: dto.name.trim(),
-      elements: seed.elements,
-      sections: seed.sections,
-      formLayout: seed.formLayout,
     });
 
     form.activities[0].formId = form._id.toString();
     await form.save();
 
     const formJson = form.toJSON();
-    const versionJson = initialVersion.toJSON();
 
     return {
       id: formJson.id,
       name: formJson.name,
       userId: formJson.userId.toString(),
       publicId: formJson.publicId,
+      draft: {
+        title: initialDraft.title,
+        elements: initialDraft.elements,
+        sections: initialDraft.sections,
+        formLayout: initialDraft.formLayout,
+        customCss: initialDraft.customCss,
+        updatedAt: initialDraft.updatedAt.toISOString(),
+      },
       deployedVersionId: null,
       deployedVersion: null,
-      versionsCount: 1,
+      versionsCount: 0,
       submissionsCount: 0,
       settings: form.settings,
       deployments: [],
       activities: form.activities,
-      versions: [
-        {
-          id: versionJson.id,
-          formId: formJson.id,
-          versionNumber: versionJson.versionNumber,
-          title: versionJson.title,
-          elements: versionJson.elements || [],
-          sections: versionJson.sections || [],
-          formLayout: (versionJson.formLayout as LayoutDirection) || 'column',
-          customCss: versionJson.customCss || '',
-          isDeployed: false,
-          createdAt: versionJson.createdAt?.toISOString?.() || new Date().toISOString(),
-          updatedAt: versionJson.updatedAt?.toISOString?.() || new Date().toISOString(),
-        },
-      ],
+      versions: [],
+      hasUnpublishedChanges: true,
       createdAt: formJson.createdAt?.toISOString?.() || new Date().toISOString(),
       updatedAt: formJson.updatedAt?.toISOString?.() || new Date().toISOString(),
     };
@@ -148,11 +193,14 @@ export class FormsService {
         }
       }
 
+      const draft = this.ensureDraft(form);
+
       results.push({
         id: formJson.id,
         name: formJson.name,
         userId: formJson.userId.toString(),
         publicId: formJson.publicId,
+        draft,
         deployedVersionId: form.deployedVersionId ? form.deployedVersionId.toString() : null,
         deployedVersion,
         versionsCount,
@@ -160,6 +208,7 @@ export class FormsService {
         settings: form.settings,
         deployments: form.deployments || [],
         activities: form.activities || [],
+        hasUnpublishedChanges: !deployedVersion || Boolean(form.draft && form.draft.updatedAt > (deployedVersion?.updatedAt ? new Date(deployedVersion.updatedAt) : new Date(0))),
         createdAt: formJson.createdAt?.toISOString?.() || new Date().toISOString(),
         updatedAt: formJson.updatedAt?.toISOString?.() || new Date().toISOString(),
       });
@@ -185,10 +234,16 @@ export class FormsService {
     const formJson = form.toJSON();
     const deployedVersionIdStr = form.deployedVersionId ? form.deployedVersionId.toString() : null;
 
+    // Load deployment history versions (ordered ASC by version number)
     const versions = await this.formVersionModel
       .find({ formId: form._id })
       .sort({ versionNumber: 1 })
       .exec();
+
+    const draft = this.ensureDraft(form, versions);
+    if (!form.draft) {
+      await form.save();
+    }
 
     const versionDtos: FormVersionDto[] = versions.map((v) => {
       const vJson = v.toJSON();
@@ -228,12 +283,11 @@ export class FormsService {
       ];
     }
 
-    // Dynamic Activities Synthesis if stored activities are empty
+    // Synthesize activities if empty
     let activities = form.activities || [];
     if (activities.length === 0) {
       const generatedActivities: any[] = [];
 
-      // 1. Form creation
       generatedActivities.push({
         id: `act_init_${formJson.id}`,
         formId: formJson.id,
@@ -243,20 +297,6 @@ export class FormsService {
         timestamp: formJson.createdAt?.toISOString?.() || new Date().toISOString(),
       });
 
-      // 2. Versions
-      for (const v of versionDtos) {
-        generatedActivities.push({
-          id: `act_v_${v.id}`,
-          formId: formJson.id,
-          type: 'version_created',
-          title: `Draft Version ${v.versionNumber} created`,
-          description: `Version ${v.versionNumber} ("${v.title}") was created with ${v.elements.length} field(s).`,
-          timestamp: v.createdAt,
-          versionNumber: v.versionNumber,
-        });
-      }
-
-      // 3. Deployments
       for (const d of deployments) {
         generatedActivities.push({
           id: `act_dep_${d.id}`,
@@ -269,7 +309,6 @@ export class FormsService {
         });
       }
 
-      // 4. Submissions (latest 5)
       const recentSubs = await this.formSubmissionModel
         .find({ formId: form._id })
         .sort({ createdAt: -1 })
@@ -286,11 +325,28 @@ export class FormsService {
         });
       }
 
-      // Sort newest first
       generatedActivities.sort(
         (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
       );
       activities = generatedActivities;
+    }
+
+    // Determine whether draft has unpublished changes compared to deployed version
+    let hasUnpublishedChanges = false;
+    if (!deployedVersion) {
+      hasUnpublishedChanges = true;
+    } else {
+      const draftTitle = (draft.title || '').trim();
+      const depTitle = (deployedVersion.title || '').trim();
+      const draftLayout = draft.formLayout || 'column';
+      const depLayout = deployedVersion.formLayout || 'column';
+      const draftCss = (draft.customCss || '').trim();
+      const depCss = (deployedVersion.customCss || '').trim();
+      const draftSecStr = JSON.stringify(draft.sections || []);
+      const depSecStr = JSON.stringify(deployedVersion.sections || []);
+      if (draftTitle !== depTitle || draftLayout !== depLayout || draftCss !== depCss || draftSecStr !== depSecStr) {
+        hasUnpublishedChanges = true;
+      }
     }
 
     return {
@@ -298,6 +354,7 @@ export class FormsService {
       name: formJson.name,
       userId: formJson.userId.toString(),
       publicId: formJson.publicId,
+      draft,
       deployedVersionId: deployedVersionIdStr,
       deployedVersion,
       versions: versionDtos,
@@ -316,16 +373,18 @@ export class FormsService {
       },
       deployments,
       activities,
+      hasUnpublishedChanges,
       createdAt: formJson.createdAt?.toISOString?.() || new Date().toISOString(),
       updatedAt: formJson.updatedAt?.toISOString?.() || new Date().toISOString(),
     };
   }
 
-  async createVersion(
+  // Update current draft (does NOT create a version or multiple drafts)
+  async updateDraft(
     userId: string,
     formId: string,
-    dto: CreateVersionDto,
-  ): Promise<FormVersionDto> {
+    dto: UpdateDraftDto,
+  ): Promise<FormDto> {
     if (!Types.ObjectId.isValid(formId)) {
       throw new NotFoundException('Form not found');
     }
@@ -339,63 +398,45 @@ export class FormsService {
       throw new ForbiddenException('You do not have access to this form');
     }
 
-    const latest = await this.formVersionModel
-      .findOne({ formId: form._id })
-      .sort({ versionNumber: -1 })
-      .exec();
+    const existingDraft = this.ensureDraft(form);
 
-    const nextVersionNumber = (latest?.versionNumber || 0) + 1;
-    const title = dto.title?.trim() || latest?.title || form.name;
-    const sections = dto.sections !== undefined ? dto.sections : (latest?.sections || []);
-    const formLayout = dto.formLayout !== undefined ? dto.formLayout : (latest?.formLayout || 'column');
+    const title = dto.title !== undefined ? dto.title.trim() : existingDraft.title;
+    if (dto.title !== undefined && !title) {
+      throw new BadRequestException('Title cannot be empty');
+    }
 
+    let sections = dto.sections !== undefined ? dto.sections : (existingDraft.sections || []);
     let elements = dto.elements;
     if (elements === undefined) {
       if (sections && sections.length > 0) {
         elements = extractAllElements(sections);
       } else {
-        elements = latest?.elements || [];
+        elements = existingDraft.elements || [];
       }
     }
 
-    const newVersion = await this.formVersionModel.create({
-      formId: form._id,
-      versionNumber: nextVersionNumber,
+    const formLayout = dto.formLayout !== undefined ? dto.formLayout : (existingDraft.formLayout || 'column');
+    const customCss = dto.customCss !== undefined ? dto.customCss : (existingDraft.customCss || '');
+
+    form.draft = {
       title,
       elements,
       sections,
       formLayout,
-      customCss: dto.customCss !== undefined ? dto.customCss : (latest?.customCss || ''),
-    });
+      customCss,
+      updatedAt: new Date(),
+    };
 
-    // Touch form updated timestamp
     form.updatedAt = new Date();
     await form.save();
 
-    const vJson = newVersion.toJSON();
-    return {
-      id: vJson.id,
-      formId: form._id.toString(),
-      versionNumber: vJson.versionNumber,
-      title: vJson.title,
-      elements: vJson.elements || [],
-      sections: vJson.sections || [],
-      formLayout: (vJson.formLayout as LayoutDirection) || 'column',
-      customCss: vJson.customCss || '',
-      isDeployed: false,
-      createdAt: vJson.createdAt?.toISOString?.() || new Date().toISOString(),
-      updatedAt: vJson.updatedAt?.toISOString?.() || new Date().toISOString(),
-    };
+    return this.findOne(userId, formId);
   }
 
-  async updateVersion(
-    userId: string,
-    formId: string,
-    versionId: string,
-    dto: UpdateVersionDto,
-  ): Promise<FormVersionDto> {
-    if (!Types.ObjectId.isValid(formId) || !Types.ObjectId.isValid(versionId)) {
-      throw new NotFoundException('Form or version not found');
+  // Deploy current draft -> Creates next immutable version (Version 1, Version 2, ...) and publishes it
+  async deployDraft(userId: string, formId: string): Promise<FormDto> {
+    if (!Types.ObjectId.isValid(formId)) {
+      throw new NotFoundException('Form not found');
     }
 
     const form = await this.formModel.findById(formId).exec();
@@ -407,88 +448,11 @@ export class FormsService {
       throw new ForbiddenException('You do not have access to this form');
     }
 
-    const version = await this.formVersionModel.findOne({
-      _id: new Types.ObjectId(versionId),
-      formId: form._id,
-    });
-
-    if (!version) {
-      throw new NotFoundException('Version not found for this form');
-    }
-
-    if (dto.title !== undefined) {
-      const trimmed = dto.title.trim();
-      if (!trimmed) {
-        throw new BadRequestException('Title cannot be empty');
-      }
-      version.title = trimmed;
-    }
-
-    if (dto.sections !== undefined) {
-      version.sections = dto.sections;
-      version.elements = extractAllElements(dto.sections);
-    } else if (dto.elements !== undefined) {
-      version.elements = dto.elements;
-    }
-
-    if (dto.formLayout !== undefined) {
-      version.formLayout = dto.formLayout;
-    }
-
-    if (dto.customCss !== undefined) {
-      version.customCss = dto.customCss;
-    }
-
-    await version.save();
-
-    // Touch form updated timestamp
-    form.updatedAt = new Date();
-    await form.save();
-
-    const vJson = version.toJSON();
-    const isDeployed = form.deployedVersionId?.toString() === vJson.id;
-
-    return {
-      id: vJson.id,
-      formId: form._id.toString(),
-      versionNumber: vJson.versionNumber,
-      title: vJson.title,
-      elements: vJson.elements || [],
-      sections: vJson.sections || [],
-      formLayout: (vJson.formLayout as LayoutDirection) || 'column',
-      customCss: vJson.customCss || '',
-      isDeployed,
-      createdAt: vJson.createdAt?.toISOString?.() || new Date().toISOString(),
-      updatedAt: vJson.updatedAt?.toISOString?.() || new Date().toISOString(),
-    };
-  }
-
-  async deployVersion(userId: string, formId: string, versionId: string): Promise<FormDto> {
-    if (!Types.ObjectId.isValid(formId) || !Types.ObjectId.isValid(versionId)) {
-      throw new NotFoundException('Form or version not found');
-    }
-
-    const form = await this.formModel.findById(formId).exec();
-    if (!form) {
-      throw new NotFoundException('Form not found');
-    }
-
-    if (form.userId.toString() !== userId) {
-      throw new ForbiddenException('You do not have access to this form');
-    }
-
-    const version = await this.formVersionModel.findOne({
-      _id: new Types.ObjectId(versionId),
-      formId: form._id,
-    });
-
-    if (!version) {
-      throw new NotFoundException('Version not found for this form');
-    }
+    const draft = this.ensureDraft(form);
 
     // Block deployment while duplicate references exist!
-    if (version.sections && version.sections.length > 0) {
-      const duplicates = checkDuplicateReferences(version.sections);
+    if (draft.sections && draft.sections.length > 0) {
+      const duplicates = checkDuplicateReferences(draft.sections);
       if (duplicates.length > 0) {
         throw new BadRequestException(
           `Deployment blocked: duplicate field reference(s) found: [${duplicates.join(', ')}]. Each field reference must be unique across the entire form.`,
@@ -496,11 +460,100 @@ export class FormsService {
       }
     }
 
-    // Set as the sole deployed version
-    form.deployedVersionId = version._id as any;
+    // Determine next sequential version number based on deployment history
+    const latestVersion = await this.formVersionModel
+      .findOne({ formId: form._id })
+      .sort({ versionNumber: -1 })
+      .exec();
+
+    const nextVersionNumber = (latestVersion?.versionNumber || 0) + 1;
+    const elements = draft.sections && draft.sections.length > 0
+      ? extractAllElements(draft.sections)
+      : (draft.elements || []);
+
+    // Create immutable deployment version snapshot
+    const newVersion = await this.formVersionModel.create({
+      formId: form._id,
+      versionNumber: nextVersionNumber,
+      title: draft.title || form.name,
+      elements,
+      sections: draft.sections || [],
+      formLayout: draft.formLayout || 'column',
+      customCss: draft.customCss || '',
+    });
+
+    // Make this version the active deployed version
+    form.deployedVersionId = newVersion._id as any;
     form.updatedAt = new Date();
 
     // Record deployment history
+    const previousDeployments = (form.deployments || []).map((d: any) => ({
+      ...d,
+      isCurrent: false,
+    }));
+
+    const newDeployment = {
+      id: `dep_${randomBytes(4).toString('hex')}`,
+      formId: form._id.toString(),
+      versionId: newVersion._id.toString(),
+      versionNumber: newVersion.versionNumber,
+      deployedAt: new Date().toISOString(),
+      deployedBy: 'Workspace Member',
+      isCurrent: true,
+      notes: `Production deployment of Version ${newVersion.versionNumber}`,
+    };
+
+    form.deployments = [newDeployment, ...previousDeployments];
+
+    // Add activity log
+    const activity = {
+      id: `act_${randomBytes(4).toString('hex')}`,
+      formId: form._id.toString(),
+      type: 'version_deployed',
+      title: `Version ${newVersion.versionNumber} deployed`,
+      description: `Version ${newVersion.versionNumber} ("${newVersion.title}") was published to production.`,
+      timestamp: new Date().toISOString(),
+      versionNumber: newVersion.versionNumber,
+    };
+    form.activities = [activity, ...(form.activities || [])];
+
+    await form.save();
+    return this.findOne(userId, formId);
+  }
+
+  // Compatibility method: deployVersion delegates to deployDraft or sets active version
+  async deployVersion(userId: string, formId: string, versionId?: string): Promise<FormDto> {
+    if (!versionId) {
+      return this.deployDraft(userId, formId);
+    }
+
+    if (!Types.ObjectId.isValid(formId) || !Types.ObjectId.isValid(versionId)) {
+      throw new NotFoundException('Form or version not found');
+    }
+
+    const form = await this.formModel.findById(formId).exec();
+    if (!form) {
+      throw new NotFoundException('Form not found');
+    }
+
+    if (form.userId.toString() !== userId) {
+      throw new ForbiddenException('You do not have access to this form');
+    }
+
+    const version = await this.formVersionModel.findOne({
+      _id: new Types.ObjectId(versionId),
+      formId: form._id,
+    });
+
+    if (!version) {
+      // If versionId does not exist, deploy the current draft as next version
+      return this.deployDraft(userId, formId);
+    }
+
+    // Set existing version as the active deployed version
+    form.deployedVersionId = version._id as any;
+    form.updatedAt = new Date();
+
     const previousDeployments = (form.deployments || []).map((d: any) => ({
       ...d,
       isCurrent: false,
@@ -514,28 +567,64 @@ export class FormsService {
       deployedAt: new Date().toISOString(),
       deployedBy: 'Workspace Member',
       isCurrent: true,
-      notes: `Production release of Version ${version.versionNumber}`,
+      notes: `Re-activated Version ${version.versionNumber} for production`,
     };
 
     form.deployments = [newDeployment, ...previousDeployments];
 
-    // Add activity
     const activity = {
       id: `act_${randomBytes(4).toString('hex')}`,
       formId: form._id.toString(),
       type: 'version_deployed',
-      title: `Version ${version.versionNumber} deployed`,
-      description: `Version ${version.versionNumber} ("${version.title}") was published to production.`,
+      title: `Version ${version.versionNumber} activated`,
+      description: `Version ${version.versionNumber} ("${version.title}") is now active in production.`,
       timestamp: new Date().toISOString(),
       versionNumber: version.versionNumber,
     };
     form.activities = [activity, ...(form.activities || [])];
 
     await form.save();
-
     return this.findOne(userId, formId);
   }
 
+  // Compatibility: createVersion delegates to deployDraft
+  async createVersion(
+    userId: string,
+    formId: string,
+    dto: CreateVersionDto,
+  ): Promise<FormVersionDto> {
+    if (dto.title || dto.sections || dto.elements) {
+      await this.updateDraft(userId, formId, dto);
+    }
+    const updatedForm = await this.deployDraft(userId, formId);
+    return updatedForm.deployedVersion!;
+  }
+
+  // Compatibility: updateVersion updates the draft
+  async updateVersion(
+    userId: string,
+    formId: string,
+    _versionId: string,
+    dto: UpdateVersionDto,
+  ): Promise<FormVersionDto> {
+    const updatedForm = await this.updateDraft(userId, formId, dto);
+    const draft = updatedForm.draft!;
+    return {
+      id: 'draft',
+      formId: updatedForm.id,
+      versionNumber: (updatedForm.versions?.length || 0) + 1,
+      title: draft.title,
+      elements: draft.elements,
+      sections: draft.sections,
+      formLayout: draft.formLayout,
+      customCss: draft.customCss,
+      isDeployed: false,
+      createdAt: draft.updatedAt || new Date().toISOString(),
+      updatedAt: draft.updatedAt || new Date().toISOString(),
+    };
+  }
+
+  // Compatibility: duplicateVersion copies into draft
   async duplicateVersion(
     userId: string,
     formId: string,
@@ -546,12 +635,8 @@ export class FormsService {
     }
 
     const form = await this.formModel.findById(formId).exec();
-    if (!form) {
+    if (!form || form.userId.toString() !== userId) {
       throw new NotFoundException('Form not found');
-    }
-
-    if (form.userId.toString() !== userId) {
-      throw new ForbiddenException('You do not have access to this form');
     }
 
     const sourceVersion = await this.formVersionModel.findOne({
@@ -563,49 +648,31 @@ export class FormsService {
       throw new NotFoundException('Source version not found');
     }
 
-    const latest = await this.formVersionModel
-      .findOne({ formId: form._id })
-      .sort({ versionNumber: -1 })
-      .exec();
-
-    const nextVersionNumber = (latest?.versionNumber || 0) + 1;
-
-    const newVersion = await this.formVersionModel.create({
-      formId: form._id,
-      versionNumber: nextVersionNumber,
-      title: `${sourceVersion.title} (Copy)`,
+    // Load into current draft
+    form.draft = {
+      title: `${sourceVersion.title} (Draft)`,
       elements: JSON.parse(JSON.stringify(sourceVersion.elements || [])),
       sections: JSON.parse(JSON.stringify(sourceVersion.sections || [])),
       formLayout: sourceVersion.formLayout || 'column',
       customCss: sourceVersion.customCss || '',
-    });
+      updatedAt: new Date(),
+    };
 
     form.updatedAt = new Date();
-    const activity = {
-      id: `act_${randomBytes(4).toString('hex')}`,
-      formId: form._id.toString(),
-      type: 'version_created',
-      title: `Draft Version ${nextVersionNumber} created`,
-      description: `Cloned from Version ${sourceVersion.versionNumber}.`,
-      timestamp: new Date().toISOString(),
-      versionNumber: nextVersionNumber,
-    };
-    form.activities = [activity, ...(form.activities || [])];
     await form.save();
 
-    const vJson = newVersion.toJSON();
     return {
-      id: vJson.id,
-      formId: form._id.toString(),
-      versionNumber: vJson.versionNumber,
-      title: vJson.title,
-      elements: vJson.elements || [],
-      sections: vJson.sections || [],
-      formLayout: (vJson.formLayout as LayoutDirection) || 'column',
-      customCss: vJson.customCss || '',
+      id: 'draft',
+      formId: form.id,
+      versionNumber: (form.deployments?.length || 0) + 1,
+      title: form.draft.title,
+      elements: form.draft.elements,
+      sections: form.draft.sections,
+      formLayout: form.draft.formLayout as LayoutDirection,
+      customCss: form.draft.customCss,
       isDeployed: false,
-      createdAt: vJson.createdAt?.toISOString?.() || new Date().toISOString(),
-      updatedAt: vJson.updatedAt?.toISOString?.() || new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
   }
 
@@ -650,6 +717,7 @@ export class FormsService {
     return this.findOne(userId, formId);
   }
 
+  // Public live form is STABLE and points to the ACTIVE DEPLOYED VERSION snapshot
   async getPublicForm(publicId: string): Promise<PublicFormDto> {
     const form = await this.formModel.findOne({ publicId }).exec();
     if (!form) {
@@ -663,6 +731,7 @@ export class FormsService {
         elements: [],
         sections: [],
         formLayout: 'column',
+        customCss: '',
         isDeployed: false,
         publicId: form.publicId,
         updatedAt: form.updatedAt?.toISOString?.() || new Date().toISOString(),
@@ -697,6 +766,7 @@ export class FormsService {
     };
   }
 
+  // Submissions are recorded against the active deployed version snapshot
   async submitPublicForm(
     publicId: string,
     dto: SubmitFormDto,
@@ -707,7 +777,7 @@ export class FormsService {
     }
 
     if (!form.deployedVersionId) {
-      throw new BadRequestException('This form is not currently accepting submissions');
+      throw new BadRequestException('This form has not been deployed yet and is not accepting submissions');
     }
 
     if (form.settings?.isAcceptingSubmissions === false) {
@@ -725,17 +795,15 @@ export class FormsService {
 
     const deployedVersion = await this.formVersionModel.findById(form.deployedVersionId).exec();
     if (!deployedVersion) {
-      throw new BadRequestException('Deployed version not found');
+      throw new BadRequestException('Active deployed version not found');
     }
 
-    // Validate required fields and regex
+    // Validate data fields
     const elements = deployedVersion.elements || [];
     for (const el of elements) {
-      // Only interactive data fields participate in form submission
       if (!isDataField(el.type)) continue;
 
       const refKey = el.reference || el.id;
-      // Value can be sent under reference key or element ID
       const val = dto.data
         ? dto.data[refKey] !== undefined
           ? dto.data[refKey]
@@ -753,7 +821,6 @@ export class FormsService {
         }
       }
 
-      // Regex validation if enabled and field is populated
       if (
         el.validation?.enabled &&
         el.validation.pattern &&
@@ -800,6 +867,7 @@ export class FormsService {
     };
   }
 
+  // Data Sheet: Preserves all historical submitted data across all deployed versions
   async getDataView(userId: string, formId: string): Promise<FormDataViewDto> {
     if (!Types.ObjectId.isValid(formId)) {
       throw new NotFoundException('Form not found');
@@ -814,7 +882,7 @@ export class FormsService {
       throw new ForbiddenException('You do not have access to this form');
     }
 
-    // Retrieve all versions for this form ordered by versionNumber ASC
+    // Retrieve all deployment versions ordered by versionNumber ASC
     const versions = await this.formVersionModel
       .find({ formId: form._id })
       .sort({ versionNumber: 1 })
@@ -823,6 +891,7 @@ export class FormsService {
     const versionMap = new Map<string, number>();
     const columnsMap = new Map<string, FormDataColumnDto>();
 
+    // Accumulate columns from EVERY deployed version (preserving historical fields)
     for (const v of versions) {
       const vJson = v.toJSON();
       versionMap.set(vJson.id, vJson.versionNumber);
@@ -830,32 +899,52 @@ export class FormsService {
       for (const el of elements) {
         if (!isDataField(el.type)) continue;
 
-        if (!columnsMap.has(el.id)) {
-          columnsMap.set(el.id, {
+        const key = el.reference || el.id;
+        if (!columnsMap.has(key) && !columnsMap.has(el.id)) {
+          columnsMap.set(key, {
             id: el.id,
             label: el.label || el.name || el.id,
             type: el.type,
             reference: el.reference,
           });
         } else {
-          // If label or type updated in later version, use latest label
-          if (el.label || el.name) {
-            const existing = columnsMap.get(el.id)!;
-            existing.label = el.label || el.name || el.id;
-            existing.type = el.type;
-            if (el.reference) {
-              existing.reference = el.reference;
-            }
+          const col = columnsMap.get(key) || columnsMap.get(el.id);
+          if (col && (el.label || el.name)) {
+            col.label = el.label || el.name || col.label;
+            col.type = el.type;
+            if (el.reference) col.reference = el.reference;
           }
         }
       }
     }
 
-    // Retrieve all submissions for this form ordered newest first
+    // Retrieve all submissions ordered newest first
     const submissions = await this.formSubmissionModel
       .find({ formId: form._id })
       .sort({ createdAt: -1 })
       .exec();
+
+    // If submissions contain raw fields not yet in columnsMap, add them dynamically
+    for (const sub of submissions) {
+      const sJson = sub.toJSON();
+      const rawData = sJson.data || {};
+      for (const rawKey of Object.keys(rawData)) {
+        if (!columnsMap.has(rawKey)) {
+          // Check if key is reference or ID
+          const alreadyMatched = Array.from(columnsMap.values()).some(
+            (c) => c.id === rawKey || c.reference === rawKey,
+          );
+          if (!alreadyMatched) {
+            columnsMap.set(rawKey, {
+              id: rawKey,
+              label: rawKey,
+              type: 'text',
+              reference: rawKey,
+            });
+          }
+        }
+      }
+    }
 
     const columns = Array.from(columnsMap.values());
 
@@ -868,6 +957,9 @@ export class FormsService {
         let val = rawData[col.id];
         if (val === undefined && col.reference) {
           val = rawData[col.reference];
+        }
+        if (val === undefined) {
+          val = rawData[col.label];
         }
         rowData[col.id] = val !== undefined && val !== null ? val : '';
       }

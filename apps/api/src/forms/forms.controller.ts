@@ -12,6 +12,7 @@ import { ActiveUserGuard } from '../common/guards/active-user.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { FormsService } from './forms.service';
 import { CreateFormDto } from './dto/create-form.dto';
+import { UpdateDraftDto } from './dto/update-draft.dto';
 import { CreateVersionDto } from './dto/create-version.dto';
 import { UpdateVersionDto } from './dto/update-version.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
@@ -41,6 +42,23 @@ export class FormsController {
     @Param('id') formId: string,
   ): Promise<FormDto> {
     return this.formsService.findOne(userId, formId);
+  }
+
+  @Patch(':id/draft')
+  updateDraft(
+    @CurrentUser('id') userId: string,
+    @Param('id') formId: string,
+    @Body() dto: UpdateDraftDto,
+  ): Promise<FormDto> {
+    return this.formsService.updateDraft(userId, formId, dto);
+  }
+
+  @Post(':id/deploy')
+  deploy(
+    @CurrentUser('id') userId: string,
+    @Param('id') formId: string,
+  ): Promise<FormDto> {
+    return this.formsService.deployDraft(userId, formId);
   }
 
   @Patch(':id/settings')

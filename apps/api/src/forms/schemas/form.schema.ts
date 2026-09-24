@@ -19,6 +19,19 @@ export class Form {
 
   @Prop({
     type: MongooseSchema.Types.Mixed,
+    default: null,
+  })
+  draft?: {
+    title: string;
+    elements: any[];
+    sections?: any[];
+    formLayout?: string;
+    customCss?: string;
+    updatedAt?: Date;
+  };
+
+  @Prop({
+    type: MongooseSchema.Types.Mixed,
     default: () => ({
       submissionLimit: null,
       allowMultipleSubmissions: true,

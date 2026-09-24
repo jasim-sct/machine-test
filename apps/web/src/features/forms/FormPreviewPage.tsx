@@ -5,10 +5,11 @@ import {
   FormVersionDto,
   isDataField,
   extractAllElements,
+  formatSubmissionData,
 } from '@saas/shared';
 import { formsService } from '../../services/forms.service';
 import { Spinner, Alert } from '../../components';
-import { FormRenderer } from './renderer/FormRenderer';
+import { PublicFormView } from './public/PublicFormView';
 import './FormPreviewPage.scss';
 
 export const FormPreviewPage: React.FC = () => {
@@ -41,9 +42,30 @@ export const FormPreviewPage: React.FC = () => {
         const data = await formsService.getOne(id);
         setForm(data);
 
-        if (data.versions && data.versions.length > 0) {
+        if (requestedVersionId && data.versions) {
+          const selected = data.versions.find((v) => v.id === requestedVersionId);
+          if (selected) {
+            setActiveVersion(selected);
+            return;
+          }
+        }
+
+        if (data.draft) {
+          setActiveVersion({
+            id: 'draft',
+            formId: data.id,
+            versionNumber: (data.deployedVersion?.versionNumber || 0) + 1,
+            title: data.draft.title || data.name,
+            elements: data.draft.elements || [],
+            sections: data.draft.sections || [],
+            formLayout: data.draft.formLayout || 'column',
+            customCss: data.draft.customCss || '',
+            isDeployed: false,
+            createdAt: data.draft.updatedAt || new Date().toISOString(),
+            updatedAt: data.draft.updatedAt || new Date().toISOString(),
+          });
+        } else if (data.versions && data.versions.length > 0) {
           const selected =
-            (requestedVersionId && data.versions.find((v) => v.id === requestedVersionId)) ||
             data.versions.find((v) => v.id === data.deployedVersionId) ||
             data.versions[data.versions.length - 1];
 
@@ -353,20 +375,15 @@ export const FormPreviewPage: React.FC = () => {
               : undefined
           }
         >
-          <FormRenderer
-            mode="preview"
-            formTitle={activeVersion.title || form.name}
+          <PublicFormView
             formLayout={activeVersion.formLayout || 'column'}
             sections={activeVersion.sections || []}
             elements={activeVersion.elements || []}
-            device={previewDevice}
+            previewDevice={previewDevice}
             values={testValues}
             onChange={handleFieldChange}
             errors={validationErrors}
-            onSubmit={handleTestSubmit}
-            onReset={handleReset}
-            showSubmitButton={true}
-            submitButtonText="Simulate Submit Response"
+            onSubmit={(e) => handleTestSubmit(e, formatSubmissionData(allElements, testValues))}
             customCss={activeVersion.customCss}
             formId={form.id}
           />

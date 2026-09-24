@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   FormDto,
-  FormVersionDto,
   FormSection,
   FormZone,
   FormElement,
@@ -31,7 +30,6 @@ export const FormEditorPage: React.FC = () => {
 
   // Core Form & Version State
   const [form, setForm] = useState<FormDto | null>(null);
-  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [titleInput, setTitleInput] = useState<string>('');
   const [formLayout, setFormLayout] = useState<LayoutDirection>('column');
   const [sections, setSections] = useState<FormSection[]>([]);
@@ -53,7 +51,6 @@ export const FormEditorPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [savingDraft, setSavingDraft] = useState(false);
   const [deployingVersionId, setDeployingVersionId] = useState<string | null>(null);
-  const [creatingVersion, setCreatingVersion] = useState(false);
 
   // Feedback notifications
   const [error, setError] = useState<string | null>(null);
@@ -182,7 +179,7 @@ export const FormEditorPage: React.FC = () => {
   // Real-time duplicate references calculation
   const duplicateReferences = checkDuplicateReferences(sections);
 
-  // Load form details and versions
+  // Load form details and draft
   const loadForm = async () => {
     if (!id) return;
     try {
@@ -191,12 +188,18 @@ export const FormEditorPage: React.FC = () => {
       const data = await formsService.getOne(id);
       setForm(data);
 
-      if (data.versions && data.versions.length > 0) {
-        const initial =
-          data.versions.find((v) => v.id === data.deployedVersionId) ||
-          data.versions[data.versions.length - 1];
-
-        applyVersionToEditor(initial);
+      const draft = data.draft || (data.versions && data.versions[data.versions.length - 1]);
+      if (draft) {
+        applyDraftToEditor(draft);
+      } else {
+        const seed = getRealisticDefaultForm(data.name);
+        applyDraftToEditor({
+          title: data.name,
+          elements: seed.elements,
+          sections: seed.sections,
+          formLayout: seed.formLayout,
+          customCss: '',
+        });
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load form');
@@ -205,23 +208,28 @@ export const FormEditorPage: React.FC = () => {
     }
   };
 
-  const applyVersionToEditor = (version: FormVersionDto) => {
-    setSelectedVersionId(version.id);
-    setTitleInput(version.title);
-    setCustomCss(version.customCss || '');
-    const layout = version.formLayout || 'column';
+  const applyDraftToEditor = (draft: {
+    title?: string;
+    customCss?: string;
+    formLayout?: LayoutDirection;
+    sections?: FormSection[];
+    elements?: FormElement[];
+  }) => {
+    setTitleInput(draft.title || form?.name || '');
+    setCustomCss(draft.customCss || '');
+    const layout = draft.formLayout || 'column';
     setFormLayout(layout);
 
-    let initialSections = version.sections || [];
+    let initialSections = draft.sections || [];
 
-    // Fallback if legacy version without sections
+    // Fallback if legacy without sections
     if (initialSections.length === 0) {
-      if (version.elements && version.elements.length > 0) {
+      if (draft.elements && draft.elements.length > 0) {
         initialSections = [
           {
             id: `sec_${Date.now().toString(36)}`,
             name: 'Main Section',
-            title: version.title,
+            title: draft.title || '',
             layout: 'column',
             zones: [
               {
@@ -229,13 +237,13 @@ export const FormEditorPage: React.FC = () => {
                 name: 'Main Zone',
                 layout: 'column',
                 responsiveWidth: { desktop: 'full', tablet: 'full', mobile: 'full' },
-                elements: version.elements,
+                elements: draft.elements,
               },
             ],
           },
         ];
       } else {
-        const seed = getRealisticDefaultForm(version.title);
+        const seed = getRealisticDefaultForm(draft.title || form?.name || 'Form');
         initialSections = seed.sections;
       }
     }
@@ -244,22 +252,14 @@ export const FormEditorPage: React.FC = () => {
     resetHistory({
       formLayout: layout,
       sections: initialSections,
-      title: version.title,
+      title: draft.title || form?.name || '',
     });
-    // Properties closed by default
     setSelection(null);
   };
 
   useEffect(() => {
     loadForm();
   }, [id]);
-
-  const selectedVersion: FormVersionDto | undefined = form?.versions?.find(
-    (v) => v.id === selectedVersionId,
-  );
-
-  const isSelectedDeployed =
-    selectedVersion && form?.deployedVersionId === selectedVersion.id;
 
   // Add Section
   const handleAddSection = () => {
@@ -552,9 +552,9 @@ export const FormEditorPage: React.FC = () => {
     });
   };
 
-  // Save Draft
+  // Save Draft (updates the single current draft)
   const handleSaveDraft = async () => {
-    if (!id || !selectedVersionId || !titleInput.trim()) return;
+    if (!id || !titleInput.trim()) return;
 
     setSavingDraft(true);
     setError(null);
@@ -562,7 +562,7 @@ export const FormEditorPage: React.FC = () => {
 
     try {
       const flattenedElements = extractAllElements(sections);
-      const updated = await formsService.updateVersion(id, selectedVersionId, {
+      const updated = await formsService.updateDraft(id, {
         title: titleInput.trim(),
         sections,
         formLayout,
@@ -570,23 +570,7 @@ export const FormEditorPage: React.FC = () => {
         customCss,
       });
 
-      setForm((prev) => {
-        if (!prev || !prev.versions) return prev;
-        const updatedVersions = prev.versions.map((v) =>
-          v.id === updated.id
-            ? {
-                ...v,
-                title: updated.title,
-                sections: updated.sections,
-                formLayout: updated.formLayout,
-                elements: updated.elements,
-                customCss: updated.customCss,
-              }
-            : v,
-        );
-        return { ...prev, versions: updatedVersions };
-      });
-
+      setForm(updated);
       setSaveSuccess('Draft saved');
       setTimeout(() => setSaveSuccess(null), 3000);
     } catch (err: any) {
@@ -596,51 +580,22 @@ export const FormEditorPage: React.FC = () => {
     }
   };
 
-  // Create a new draft version
-  const handleCreateDraftVersion = async () => {
-    if (!id) return;
-    setCreatingVersion(true);
-    setError(null);
-
-    try {
-      const flattenedElements = extractAllElements(sections);
-      const newVersion = await formsService.createVersion(id, {
-        title: titleInput ? `${titleInput} (Draft)` : undefined,
-        sections,
-        formLayout,
-        elements: flattenedElements,
-        customCss,
-      });
-
-      const refreshed = await formsService.getOne(id);
-      setForm(refreshed);
-
-      applyVersionToEditor(newVersion);
-      setSaveSuccess(`Version ${newVersion.versionNumber} created`);
-      setTimeout(() => setSaveSuccess(null), 3000);
-    } catch (err: any) {
-      setError(err.message || 'Failed to create new version');
-    } finally {
-      setCreatingVersion(false);
-    }
-  };
-
-  // Deploy version
+  // Deploy (takes current draft, creates next immutable version snapshot, makes it live)
   const handleDeployVersion = async () => {
-    if (!id || !selectedVersionId) return;
+    if (!id) return;
 
     if (duplicateReferences.length > 0) {
       setError('Cannot deploy: please ensure all form fields have distinct names.');
       return;
     }
 
-    setDeployingVersionId(selectedVersionId);
+    setDeployingVersionId('deploying');
     setError(null);
 
     try {
       // First save current draft changes
       const flattenedElements = extractAllElements(sections);
-      await formsService.updateVersion(id, selectedVersionId, {
+      await formsService.updateDraft(id, {
         title: titleInput.trim(),
         sections,
         formLayout,
@@ -648,10 +603,10 @@ export const FormEditorPage: React.FC = () => {
         customCss,
       });
 
-      const updatedForm = await formsService.deployVersion(id, selectedVersionId);
+      const updatedForm = await formsService.deploy(id);
       setForm(updatedForm);
 
-      const deployedV = updatedForm.versions?.find((v) => v.id === selectedVersionId);
+      const deployedV = updatedForm.deployedVersion;
       setSaveSuccess(`Version ${deployedV?.versionNumber || ''} is now live and published!`);
       setTimeout(() => setSaveSuccess(null), 4000);
     } catch (err: any) {
@@ -665,10 +620,10 @@ export const FormEditorPage: React.FC = () => {
   const handleOpenPreview = async () => {
     if (!id) return;
     // Auto-save draft changes first so preview loads latest updates
-    if (selectedVersionId && titleInput.trim()) {
+    if (titleInput.trim()) {
       try {
         const flattenedElements = extractAllElements(sections);
-        await formsService.updateVersion(id, selectedVersionId, {
+        await formsService.updateDraft(id, {
           title: titleInput.trim(),
           sections,
           formLayout,
@@ -679,10 +634,7 @@ export const FormEditorPage: React.FC = () => {
         // proceed
       }
     }
-    const targetUrl = selectedVersionId
-      ? `/forms/${id}/preview?version=${selectedVersionId}`
-      : `/forms/${id}/preview`;
-    window.open(targetUrl, '_blank');
+    window.open(`/forms/${id}/preview`, '_blank');
   };
 
   // Bottom toolbar toggle helper
@@ -772,17 +724,33 @@ export const FormEditorPage: React.FC = () => {
           {savingDraft ? (
             <div className="form-builder-app__status-pill form-builder-app__status-pill--saving">
               <span className="dot" />
-              <span>Saving...</span>
+              <span>Saving draft...</span>
             </div>
-          ) : isSelectedDeployed ? (
-            <div className="form-builder-app__status-pill form-builder-app__status-pill--deployed">
-              <span className="dot" />
-              <span>Live v{selectedVersion?.versionNumber}</span>
-            </div>
+          ) : form?.deployedVersion ? (
+            form.hasUnpublishedChanges ? (
+              <div
+                className="form-builder-app__status-pill form-builder-app__status-pill--draft"
+                title={`Unpublished changes in draft. Live form is on Version ${form.deployedVersion.versionNumber}`}
+              >
+                <span className="dot" />
+                <span>Draft (Unpublished Changes)</span>
+              </div>
+            ) : (
+              <div
+                className="form-builder-app__status-pill form-builder-app__status-pill--deployed"
+                title={`Live form is up to date with Version ${form.deployedVersion.versionNumber}`}
+              >
+                <span className="dot" />
+                <span>Live v{form.deployedVersion.versionNumber}</span>
+              </div>
+            )
           ) : (
-            <div className="form-builder-app__status-pill form-builder-app__status-pill--draft">
+            <div
+              className="form-builder-app__status-pill form-builder-app__status-pill--draft"
+              title="Form has not been deployed yet"
+            >
               <span className="dot" />
-              <span>Draft v{selectedVersion?.versionNumber}</span>
+              <span>Draft (Unpublished)</span>
             </div>
           )}
         </div>
@@ -1011,10 +979,6 @@ export const FormEditorPage: React.FC = () => {
         isOpen={activeFloatingPanel === 'settings'}
         onClose={() => setActiveFloatingPanel(null)}
         form={form}
-        selectedVersionId={selectedVersionId}
-        onSelectVersion={applyVersionToEditor}
-        onCreateVersion={handleCreateDraftVersion}
-        isCreatingVersion={creatingVersion}
         formTitle={titleInput}
         onChangeFormTitle={setTitleInput}
         onNavigateToSubmissions={() => navigate(`/forms/${id}/data`)}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FormDto, FormVersionDto } from '@saas/shared';
+import { FormDto } from '@saas/shared';
 import { FloatingPanel } from './FloatingPanel';
 import './FloatingSettingsPanel.scss';
 
@@ -7,10 +7,6 @@ export interface FloatingSettingsPanelProps {
   isOpen: boolean;
   onClose: () => void;
   form: FormDto;
-  selectedVersionId: string | null;
-  onSelectVersion: (version: FormVersionDto) => void;
-  onCreateVersion: () => void;
-  isCreatingVersion: boolean;
   formTitle: string;
   onChangeFormTitle: (title: string) => void;
   onNavigateToSubmissions: () => void;
@@ -20,10 +16,6 @@ export const FloatingSettingsPanel: React.FC<FloatingSettingsPanelProps> = ({
   isOpen,
   onClose,
   form,
-  selectedVersionId,
-  onSelectVersion,
-  onCreateVersion,
-  isCreatingVersion,
   formTitle,
   onChangeFormTitle,
   onNavigateToSubmissions,
@@ -37,6 +29,8 @@ export const FloatingSettingsPanel: React.FC<FloatingSettingsPanelProps> = ({
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
   };
+
+  const deployedVersion = form.deployedVersion;
 
   return (
     <FloatingPanel
@@ -67,51 +61,18 @@ export const FloatingSettingsPanel: React.FC<FloatingSettingsPanelProps> = ({
           </div>
         </div>
 
-        {/* Versions Management */}
+        {/* Deployment Status */}
         <div className="settings-group">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span className="settings-group__title">Version History</span>
-            <button
-              type="button"
-              className="settings-btn"
-              onClick={onCreateVersion}
-              disabled={isCreatingVersion}
-              style={{ padding: '2px 8px', fontSize: '11px', flex: 'none' }}
-            >
-              <span className="material-icon">add</span>
-              <span>{isCreatingVersion ? 'Creating...' : 'New Draft'}</span>
-            </button>
-          </div>
-
-          <div className="settings-versions-list">
-            {(form.versions || []).map((v) => {
-              const isSelected = v.id === selectedVersionId;
-              const isDeployed = v.id === form.deployedVersionId;
-              return (
-                <div
-                  key={v.id}
-                  className={`settings-version-item ${isSelected ? 'active' : ''}`}
-                  onClick={() => onSelectVersion(v)}
-                >
-                  <div className="settings-version-item__left">
-                    <span className="material-icon" style={{ fontSize: '16px', color: isSelected ? '#818cf8' : '#64748b' }}>
-                      history_edu
-                    </span>
-                    <div>
-                      <div className="settings-version-item__num">Version {v.versionNumber}</div>
-                      <div className="settings-version-item__title">{v.title}</div>
-                    </div>
-                  </div>
-                  <div>
-                    {isDeployed ? (
-                      <span className="settings-version-item__badge live">● Live Deployed</span>
-                    ) : (
-                      <span className="settings-version-item__badge draft">Draft</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          <span className="settings-group__title">Deployment Status</span>
+          <div style={{ padding: '8px 12px', background: 'var(--color-bg-secondary)', borderRadius: '6px', fontSize: '12px', marginBottom: '8px' }}>
+            {deployedVersion ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ color: '#059669', fontWeight: 600 }}>● Live Version {deployedVersion.versionNumber}</span>
+                <span style={{ color: 'var(--color-text-muted)' }}>{form.hasUnpublishedChanges ? 'Draft modified' : 'Up to date'}</span>
+              </div>
+            ) : (
+              <span style={{ color: 'var(--color-text-secondary)' }}>Draft Only (Unpublished)</span>
+            )}
           </div>
         </div>
 
@@ -137,7 +98,7 @@ export const FloatingSettingsPanel: React.FC<FloatingSettingsPanelProps> = ({
                 onClick={() => window.open(`/f/${form.publicId}`, '_blank')}
               >
                 <span className="material-icon">open_in_new</span>
-                <span>Open Form</span>
+                <span>Open Live Form</span>
               </button>
             )}
           </div>

@@ -5,9 +5,10 @@ import {
   LayoutDirection,
   isDataField,
   extractAllElements,
+  formatSubmissionData,
 } from '@saas/shared';
 import { Dialog, Button, Alert, Badge } from '../../../components';
-import { FormRenderer } from '../renderer/FormRenderer';
+import { PublicFormView } from '../public/PublicFormView';
 import './FormCanvasHierarchical.scss';
 
 export interface FormPreviewModalProps {
@@ -287,21 +288,16 @@ export const FormPreviewModal: React.FC<FormPreviewModalProps> = ({
             </div>
           )}
 
-          {/* Unified Shared Form Renderer */}
-          <FormRenderer
-            mode="preview"
-            formTitle={formTitle}
+          {/* Independent Public Form Composition */}
+          <PublicFormView
             formLayout={formLayout}
             sections={sections}
             elements={elements}
-            device={previewDevice}
+            previewDevice={previewDevice}
             values={testValues}
             onChange={handleFieldChange}
             errors={errors}
-            onSubmit={handleTestSubmit}
-            onReset={handleReset}
-            showSubmitButton={true}
-            submitButtonText="Simulate Submit Response"
+            onSubmit={(e) => handleTestSubmit(e, formatSubmissionData(allElements, testValues))}
             customCss={customCss}
             formId={formId}
           />

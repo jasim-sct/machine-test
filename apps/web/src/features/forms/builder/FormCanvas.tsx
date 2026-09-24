@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { FormElement, FormElementType } from '@saas/shared';
-import { FieldRenderer } from './FieldRenderer';
 import {
   Button,
   Badge,
   FormField,
   FormLabel,
   Input,
+  FieldElement,
 } from '../../../components';
 import './FormCanvas.scss';
 
@@ -421,7 +421,7 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
 
                 {/* Field Live Preview inside the grid */}
                 <div style={{ pointerEvents: 'none', opacity: 0.9 }}>
-                  <FieldRenderer element={element} />
+                  <FieldElement element={element} />
                 </div>
               </div>
             );

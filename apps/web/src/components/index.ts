@@ -36,3 +36,5 @@ export * from './ContentContainer/ContentContainer';
 export * from './AuthLayout/AuthLayout';
 export * from './AuthCard/AuthCard';
 export * from './WorkspaceHeader/WorkspaceHeader';
+export * from './fields';
+

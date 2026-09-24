@@ -4,10 +4,10 @@ import {
   LayoutDirection,
   FormElementType,
   getZoneWidthPercent,
+  getZoneFlexStyles,
 } from '@saas/shared';
-import { FieldRenderer } from './FieldRenderer';
 import { SelectionType } from './PropertiesPanel';
-import { Button } from '../../../components';
+import { Button, FieldElement } from '../../../components';
 import { scopeCss } from './scopeCss';
 import './FormCanvasHierarchical.scss';
 
@@ -34,7 +34,7 @@ export interface FormCanvasHierarchicalProps {
 type ActiveDragKind = 'section' | 'zone' | 'element' | 'palette_element' | null;
 
 export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
-  formTitle,
+  formTitle: _formTitle,
   formLayout,
   sections,
   onUpdateSections,
@@ -327,6 +327,85 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
     }
   };
 
+  // Progressive drill-down selection logic
+  const handleSectionClick = (e: React.MouseEvent, sectionId: string) => {
+    e.stopPropagation();
+    onSelect({ type: 'section', sectionId });
+  };
+
+  const handleZoneClick = (e: React.MouseEvent, sectionId: string, zoneId: string) => {
+    e.stopPropagation();
+    // 1. If form (or nothing) is selected -> Select root parent (Section) first
+    if (!selection || selection.type === 'form') {
+      onSelect({ type: 'section', sectionId });
+      return;
+    }
+    // 2. If another section is selected -> Select this section first
+    if (selection.type === 'section' && selection.sectionId !== sectionId) {
+      onSelect({ type: 'section', sectionId });
+      return;
+    }
+    // 3. If THIS section is selected -> Drill down to Zone (Sub)
+    if (selection.type === 'section' && selection.sectionId === sectionId) {
+      onSelect({ type: 'zone', sectionId, zoneId });
+      return;
+    }
+    // 4. If a zone/element in a different section is selected -> Select this section first
+    if (selection.sectionId !== sectionId) {
+      onSelect({ type: 'section', sectionId });
+      return;
+    }
+    // 5. If already in this section at zone or element level -> Select this zone
+    onSelect({ type: 'zone', sectionId, zoneId });
+  };
+
+  const handleElementClick = (
+    e: React.MouseEvent,
+    sectionId: string,
+    zoneId: string,
+    elementId: string,
+  ) => {
+    e.stopPropagation();
+    // 1. If form (or nothing) is selected -> Select root parent (Section) first
+    if (!selection || selection.type === 'form') {
+      onSelect({ type: 'section', sectionId });
+      return;
+    }
+    // 2. If a different section is selected -> Select this section first
+    if (selection.type === 'section' && selection.sectionId !== sectionId) {
+      onSelect({ type: 'section', sectionId });
+      return;
+    }
+    // 3. If THIS section is selected -> Drill down to Zone (Sub)
+    if (selection.type === 'section' && selection.sectionId === sectionId) {
+      onSelect({ type: 'zone', sectionId, zoneId });
+      return;
+    }
+    // 4. If a zone/element in a different section is selected -> Select this section first
+    if (selection.sectionId !== sectionId) {
+      onSelect({ type: 'section', sectionId });
+      return;
+    }
+    // 5. If a different zone in THIS section is selected -> Select that zone
+    if (selection.type === 'zone' && selection.zoneId !== zoneId) {
+      onSelect({ type: 'zone', sectionId, zoneId });
+      return;
+    }
+    // 6. If THIS zone is selected -> Drill down to Element (Super-sub)
+    if (selection.type === 'zone' && selection.zoneId === zoneId) {
+      onSelect({ type: 'element', sectionId, zoneId, elementId });
+      return;
+    }
+    // 7. If an element in this zone is selected -> Select this element
+    if (selection.type === 'element') {
+      if (selection.zoneId !== zoneId) {
+        onSelect({ type: 'zone', sectionId, zoneId });
+      } else {
+        onSelect({ type: 'element', sectionId, zoneId, elementId });
+      }
+    }
+  };
+
   const isFormSelected = selection?.type === 'form';
 
   return (
@@ -364,34 +443,6 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
           }
         }}
       >
-        {/* Form Title Heading (if present) */}
-        {formTitle && (
-          <div
-            style={{
-              paddingBottom: 'var(--space-3)',
-              marginBottom: 'var(--space-4)',
-              borderBottom: '1px solid var(--color-border)',
-              cursor: 'pointer',
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect({ type: 'form' });
-            }}
-          >
-            <h1
-              style={{
-                fontSize: 'var(--font-size-2xl)',
-                fontWeight: 'var(--font-weight-bold)',
-                margin: 0,
-                color: 'var(--color-text-primary)',
-                letterSpacing: '-0.02em',
-              }}
-            >
-              {formTitle}
-            </h1>
-          </div>
-        )}
-
         {/* Empty Form State */}
         {sections.length === 0 ? (
           <div
@@ -444,12 +495,13 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                     className={`canvas-section-card ${isSectionSelected ? 'canvas-section-card--selected' : ''} ${
                       isDraggingThisSection ? 'canvas-section-card--dragging' : ''
                     } ${hoveredSectionId === section.id && activeDragKind === 'zone' ? 'canvas-section-card--zone-drop-target' : ''}`}
-                    onClick={(e) => {
-                      if (!(e.target as HTMLElement).closest('.canvas-zone-card, .canvas-element-item, .canvas-action-delete')) {
-                        e.stopPropagation();
-                        onSelect({ type: 'section', sectionId: section.id });
-                      }
+                    style={{
+                      width: section.customWidth || undefined,
+                      maxWidth: '100%',
+                      minHeight: section.customHeight || undefined,
+                      boxSizing: 'border-box',
                     }}
+                    onClick={(e) => handleSectionClick(e, section.id)}
                     onDragOver={(e) => {
                       handleSectionDragOver(e, secIdx);
                       if (activeDragKind === 'zone') {
@@ -488,42 +540,41 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                       }
                     }}
                   >
-                    {/* Section Top-Right Delete Action */}
-                    {onDeleteSection && (
-                      <button
-                        type="button"
-                        className="canvas-action-delete canvas-action-delete--section"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteSection(section.id);
-                        }}
-                        title="Delete Section"
-                        aria-label="Delete Section"
-                        id={`btn-delete-section-${section.id}`}
-                      >
-                        <span className="material-icon">delete</span>
-                      </button>
-                    )}
-
-                    {/* Render original section title only if defined in form data */}
-                    {section.title && (
-                      <h2
-                        style={{
-                          fontSize: 'var(--font-size-lg)',
-                          fontWeight: 'var(--font-weight-semibold)',
-                          color: 'var(--color-text-primary)',
-                          margin: '0 0 var(--space-4) 0',
-                        }}
-                      >
-                        {section.title}
-                      </h2>
-                    )}
+                    {/* Section Header Bar with Title & Delete Action */}
+                    <div className="canvas-section-header">
+                      <div className="canvas-section-header-left">
+                        <span className="canvas-badge canvas-badge--section">
+                          <span className="material-icon">folder_open</span>
+                          {section.title ? section.title : `Section ${secIdx + 1}`}
+                        </span>
+                        <span className="canvas-meta-pill">
+                          {section.layout === 'row' ? 'Row Layout' : 'Column Layout'}
+                        </span>
+                      </div>
+                      <div className="canvas-section-header-right">
+                        {onDeleteSection && (
+                          <button
+                            type="button"
+                            className="canvas-action-delete canvas-action-delete--section"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDeleteSection(section.id);
+                            }}
+                            title="Delete Section"
+                            aria-label="Delete Section"
+                            id={`btn-delete-section-${section.id}`}
+                          >
+                            <span className="material-icon">delete</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
 
                     {/* Zones Container inside Section */}
                     {section.zones.length === 0 ? (
                       <div
                         style={{
-                          padding: 'var(--space-6) var(--space-4)',
+                          padding: 'var(--space-4) var(--space-3)',
                           textAlign: 'center',
                           border: '1px dashed var(--color-border)',
                           borderRadius: 'var(--radius-md)',
@@ -569,12 +620,19 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
 
                           const widthPercent = getZoneWidthPercent(preset, customVal);
 
-                          // In row layout, subtract proportional share of flex gap (var(--space-3)) so fractional columns (e.g. 50% + 50%) stay perfectly in one row
+                          // In row layout, subtract proportional share of flex gap (var(--space-3)) so fractional columns stay perfectly in one row
                           const gapRatio = (1 - widthPercent / 100).toFixed(4);
                           const calcWidth =
                             widthPercent >= 100
                               ? '100%'
                               : `calc(${widthPercent}% - (var(--space-3) * ${gapRatio}))`;
+
+                          const zoneFlexStyles = getZoneFlexStyles(
+                            zone.layout,
+                            zone.alignment,
+                            zone.horizontalAlign,
+                            zone.verticalAlign,
+                          );
 
                           const zoneWidthStyle: React.CSSProperties =
                             section.layout === 'row'
@@ -583,13 +641,19 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                                   maxWidth: calcWidth,
                                   width: calcWidth,
                                   minWidth: 0,
+                                  minHeight: zone.customHeight || undefined,
                                   boxSizing: 'border-box',
+                                  ...zoneFlexStyles,
                                 }
                               : {
                                   width: '100%',
                                   minWidth: 0,
+                                  minHeight: zone.customHeight || undefined,
                                   boxSizing: 'border-box',
+                                  ...zoneFlexStyles,
                                 };
+
+                          const zoneLabel = `Zone ${zoneIdx + 1} (${preset === 'custom' ? `${customVal}%` : preset})`;
 
                           return (
                             <React.Fragment key={zone.id}>
@@ -610,12 +674,7 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                                   isDraggingThisZone ? 'canvas-zone-card--dragging' : ''
                                 } ${isHoveredZoneForElement ? 'canvas-zone-card--dragover' : ''}`}
                                 style={zoneWidthStyle}
-                                onClick={(e) => {
-                                  if (!(e.target as HTMLElement).closest('.canvas-element-item, .canvas-action-delete')) {
-                                    e.stopPropagation();
-                                    onSelect({ type: 'zone', sectionId: section.id, zoneId: zone.id });
-                                  }
-                                }}
+                                onClick={(e) => handleZoneClick(e, section.id, zone.id)}
                                 onDragOver={(e) => {
                                   e.preventDefault();
                                   handleZoneDragOver(e, section.id, zoneIdx, section.layout);
@@ -639,28 +698,38 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                                   handleZoneDrop(e, section.id, zone.id, dropIdx);
                                 }}
                               >
-                                {/* Zone Top-Right Delete Action */}
-                                {onDeleteZone && (
-                                  <button
-                                    type="button"
-                                    className="canvas-action-delete canvas-action-delete--zone"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onDeleteZone(section.id, zone.id);
-                                    }}
-                                    title="Delete Zone"
-                                    aria-label="Delete Zone"
-                                    id={`btn-delete-zone-${zone.id}`}
-                                  >
-                                    <span className="material-icon">delete</span>
-                                  </button>
-                                )}
+                                {/* Zone Header Bar with Tag & Delete Action */}
+                                <div className="canvas-zone-header">
+                                  <div className="canvas-zone-header-left">
+                                    <span className="canvas-badge canvas-badge--zone">
+                                      <span className="material-icon">view_column</span>
+                                      {zoneLabel}
+                                    </span>
+                                  </div>
+                                  <div className="canvas-zone-header-right">
+                                    {onDeleteZone && (
+                                      <button
+                                        type="button"
+                                        className="canvas-action-delete canvas-action-delete--zone"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onDeleteZone(section.id, zone.id);
+                                        }}
+                                        title="Delete Zone"
+                                        aria-label="Delete Zone"
+                                        id={`btn-delete-zone-${zone.id}`}
+                                      >
+                                        <span className="material-icon">delete</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
 
                                 {/* Elements List inside Zone */}
                                 {zone.elements.length === 0 ? (
                                   <div
                                     style={{
-                                      padding: 'var(--space-6) var(--space-2)',
+                                      padding: 'var(--space-4) var(--space-2)',
                                       textAlign: 'center',
                                       border: '1px dashed var(--color-border)',
                                       borderRadius: 'var(--radius-sm)',
@@ -682,7 +751,10 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                                     Empty zone
                                   </div>
                                 ) : (
-                                  <div className={`elements-container elements-container--${zone.layout}`}>
+                                  <div
+                                    className={`elements-container elements-container--${zone.layout}`}
+                                    style={zoneFlexStyles}
+                                  >
                                     {zone.elements.map((element, elIdx) => {
                                       const isElementSelected =
                                         selection?.type === 'element' && selection.elementId === element.id;
@@ -715,6 +787,12 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                                             } ${isDuplicate ? 'canvas-element-item--error' : ''} ${
                                               isDraggingThisElement ? 'canvas-element-item--dragging' : ''
                                             }`}
+                                            style={{
+                                              width: element.customWidth || undefined,
+                                              maxWidth: '100%',
+                                              minHeight: element.customHeight || undefined,
+                                              boxSizing: 'border-box',
+                                            }}
                                             draggable={true}
                                             onDragStart={(e) => {
                                               e.stopPropagation();
@@ -744,17 +822,7 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                                                   : elIdx + 1;
                                               handleZoneDrop(e, section.id, zone.id, dropIdx);
                                             }}
-                                            onClick={(e) => {
-                                              if (!(e.target as HTMLElement).closest('.canvas-action-delete')) {
-                                                e.stopPropagation();
-                                                onSelect({
-                                                  type: 'element',
-                                                  sectionId: section.id,
-                                                  zoneId: zone.id,
-                                                  elementId: element.id,
-                                                });
-                                              }
-                                            }}
+                                            onClick={(e) => handleElementClick(e, section.id, zone.id, element.id)}
                                           >
                                             {/* Element Top-Right Delete Action */}
                                             {onDeleteElement && (
@@ -774,8 +842,8 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                                             )}
 
                                             {/* Live Rendered Control with Input Interaction Disabled */}
-                                            <div style={{ pointerEvents: 'none', userSelect: 'none' }}>
-                                              <FieldRenderer element={element} />
+                                            <div className="canvas-element-content" style={{ pointerEvents: 'none', userSelect: 'none', width: '100%' }}>
+                                              <FieldElement element={element} />
                                             </div>
                                           </div>
 

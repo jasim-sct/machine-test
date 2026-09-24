@@ -127,7 +127,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
                   No Active Production Deployment
                 </h3>
                 <p className="form-detail-overview__deployment-subtitle">
-                  This form has not been published yet. Draft versions can be edited, previewed, and deployed at any time.
+                  This form has not been published yet. Edit the current draft and click Deploy to launch Version 1 to production.
                 </p>
               </>
             )}
@@ -143,7 +143,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
               id="overview-open-deployed-btn"
             >
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                Open Deployed Form
+                Open Live Form
                 <span className="material-icon" style={{ fontSize: '14px' }}>open_in_new</span>
               </span>
             </Button>
@@ -151,36 +151,23 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
 
           <Button
             variant={isDeployed ? 'secondary' : 'primary'}
-            onClick={() =>
-              navigate(
-                latestDraft
-                  ? `/forms/${form.id}/edit?version=${latestDraft.id}`
-                  : `/forms/${form.id}/edit`,
-              )
-            }
+            onClick={() => navigate(`/forms/${form.id}/edit`)}
             id="overview-edit-draft-btn"
           >
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
               <span className="material-icon" style={{ fontSize: '16px' }}>edit</span>
-              Edit Latest Draft {latestDraft ? `(v${latestDraft.versionNumber})` : ''}
+              Edit Working Draft
             </span>
           </Button>
 
           <Button
             variant="ghost"
-            onClick={() =>
-              window.open(
-                latestDraft
-                  ? `/forms/${form.id}/preview?version=${latestDraft.id}`
-                  : `/forms/${form.id}/preview`,
-                '_blank',
-              )
-            }
+            onClick={() => window.open(`/forms/${form.id}/preview`, '_blank')}
             id="overview-preview-btn"
           >
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
               <span className="material-icon" style={{ fontSize: '16px' }}>visibility</span>
-              Preview Form
+              Preview Draft
             </span>
           </Button>
         </div>

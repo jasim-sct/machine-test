@@ -105,7 +105,7 @@ export const FormsPage: React.FC = () => {
             {form.name}
           </button>
           <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-            {form.versionsCount || 1} {(form.versionsCount || 1) === 1 ? 'version' : 'versions'}
+            {form.versionsCount || 0} {(form.versionsCount || 0) === 1 ? 'deployment' : 'deployments'}
           </div>
         </div>
       ),
@@ -123,10 +123,10 @@ export const FormsPage: React.FC = () => {
 
         return isDeployed ? (
           <Badge variant="success" withDot>
-            {versionLabel} Deployed
+            {versionLabel} Live
           </Badge>
         ) : (
-          <Badge variant="neutral">Not Deployed</Badge>
+          <Badge variant="neutral">Draft (Unpublished)</Badge>
         );
       },
     },

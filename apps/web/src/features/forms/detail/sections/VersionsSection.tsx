@@ -24,11 +24,9 @@ export const VersionsSection: React.FC<VersionsSectionProps> = ({
 }) => {
   const navigate = useNavigate();
 
-  // Dialog & Action states
   const [deployTargetVersion, setDeployTargetVersion] = useState<FormVersionDto | null>(null);
-  const [isDeploying, setIsDeploying] = useState(false);
-  const [isCreatingNewVersion, setIsCreatingNewVersion] = useState(false);
-  const [duplicatingVersionId, setDuplicatingVersionId] = useState<string | null>(null);
+  const [isDeployingDraft, setIsDeployingDraft] = useState(false);
+  const [isDeployingVersion, setIsDeployingVersion] = useState(false);
 
   // Comparison modal state
   const [comparisonModalOpen, setComparisonModalOpen] = useState(false);
@@ -41,6 +39,7 @@ export const VersionsSection: React.FC<VersionsSectionProps> = ({
   // Sort descending by version number
   const sortedVersions = [...versions].sort((a, b) => b.versionNumber - a.versionNumber);
   const deployedVersionId = form.deployedVersionId;
+  const draft = form.draft;
 
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return '—';
@@ -58,70 +57,48 @@ export const VersionsSection: React.FC<VersionsSectionProps> = ({
     }
   };
 
-  // Deploy handler
-  const handleConfirmDeploy = async () => {
+  // Deploy Current Draft
+  const handleDeployDraft = async () => {
+    setIsDeployingDraft(true);
+    setNotification(null);
+    try {
+      const updated = await formsService.deploy(form.id);
+      const newV = updated.deployedVersion;
+      setNotification({
+        type: 'success',
+        message: `Version ${newV?.versionNumber} ("${newV?.title}") has been deployed and published to live production!`,
+      });
+      await onRefresh();
+    } catch (err: any) {
+      setNotification({
+        type: 'error',
+        message: err.message || 'Failed to deploy draft',
+      });
+    } finally {
+      setIsDeployingDraft(false);
+    }
+  };
+
+  // Re-activate specific historical deployment version
+  const handleConfirmDeployHistoricalVersion = async () => {
     if (!deployTargetVersion) return;
-    setIsDeploying(true);
+    setIsDeployingVersion(true);
     setNotification(null);
     try {
       await formsService.deployVersion(form.id, deployTargetVersion.id);
       setNotification({
         type: 'success',
-        message: `Version ${deployTargetVersion.versionNumber} ("${deployTargetVersion.title}") has been published to live production!`,
+        message: `Version ${deployTargetVersion.versionNumber} ("${deployTargetVersion.title}") is now the active live production version!`,
       });
       setDeployTargetVersion(null);
       await onRefresh();
     } catch (err: any) {
       setNotification({
         type: 'error',
-        message: err.message || 'Failed to deploy version',
+        message: err.message || 'Failed to activate version',
       });
     } finally {
-      setIsDeploying(false);
-    }
-  };
-
-  // Create new draft version
-  const handleCreateNewDraft = async () => {
-    setIsCreatingNewVersion(true);
-    setNotification(null);
-    try {
-      const created = await formsService.createVersion(form.id, {
-        title: `${form.name} (Draft v${(sortedVersions[0]?.versionNumber || 0) + 1})`,
-      });
-      await onRefresh();
-      setNotification({
-        type: 'success',
-        message: `New Draft Version ${created.versionNumber} created successfully!`,
-      });
-    } catch (err: any) {
-      setNotification({
-        type: 'error',
-        message: err.message || 'Failed to create new draft version',
-      });
-    } finally {
-      setIsCreatingNewVersion(false);
-    }
-  };
-
-  // Duplicate specific version
-  const handleDuplicateVersion = async (v: FormVersionDto) => {
-    setDuplicatingVersionId(v.id);
-    setNotification(null);
-    try {
-      const cloned = await formsService.duplicateVersion(form.id, v.id);
-      await onRefresh();
-      setNotification({
-        type: 'success',
-        message: `Cloned Version ${v.versionNumber} into new Draft Version ${cloned.versionNumber}!`,
-      });
-    } catch (err: any) {
-      setNotification({
-        type: 'error',
-        message: err.message || 'Failed to duplicate version',
-      });
-    } finally {
-      setDuplicatingVersionId(null);
+      setIsDeployingVersion(false);
     }
   };
 
@@ -132,14 +109,17 @@ export const VersionsSection: React.FC<VersionsSectionProps> = ({
     setComparisonModalOpen(true);
   };
 
+  const draftInteractiveFields = (draft?.elements || []).filter((el) => isDataField(el.type)).length;
+  const draftSectionsCount = draft?.sections?.length || 1;
+
   return (
     <div className="form-detail-versions" id="section-versions">
       {/* 1. Section Header Bar */}
       <div className="form-detail-versions__header">
         <div>
-          <h3 className="form-detail-versions__title">Versions & Drafts History</h3>
+          <h3 className="form-detail-versions__title">Deployment Versions & Lifecycle</h3>
           <p className="form-detail-versions__subtitle">
-            All immutable versions and working drafts of this form. The active production release is highlighted below.
+            This form uses a single-draft, deployment-versioning model. The working draft is private and continuously editable; deployment creates immutable production versions.
           </p>
         </div>
 
@@ -164,13 +144,12 @@ export const VersionsSection: React.FC<VersionsSectionProps> = ({
           <Button
             variant="primary"
             size="small"
-            onClick={handleCreateNewDraft}
-            isLoading={isCreatingNewVersion}
-            id="create-new-draft-btn"
+            onClick={() => navigate(`/forms/${form.id}/edit`)}
+            id="edit-current-draft-btn"
           >
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <span className="material-icon" style={{ fontSize: '16px' }}>add</span>
-              New Draft Version
+              <span className="material-icon" style={{ fontSize: '16px' }}>edit</span>
+              Open in Form Editor
             </span>
           </Button>
         </div>
@@ -182,184 +161,282 @@ export const VersionsSection: React.FC<VersionsSectionProps> = ({
         </div>
       )}
 
-      {/* 2. Version Cards List */}
-      <div className="form-detail-versions__list">
-        {sortedVersions.map((v) => {
-          const isDeployed = v.id === deployedVersionId || v.isDeployed;
-          const interactiveFields = (v.elements || []).filter((el) => isDataField(el.type)).length;
-          const sectionsCount = v.sections?.length || 1;
-
-          return (
-            <div
-              key={v.id}
-              className={`form-detail-versions__card ${isDeployed ? 'is-deployed' : 'is-draft'}`}
-              id={`version-card-${v.versionNumber}`}
-            >
-              {/* Left Column: Number, Status, Meta */}
-              <div className="form-detail-versions__card-main">
-                <div className="form-detail-versions__card-header-row">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                    <span className="form-detail-versions__version-tag">
-                      Version {v.versionNumber}
-                    </span>
-
-                    {isDeployed ? (
-                      <Badge variant="success" withDot>
-                        DEPLOYED PRODUCTION
-                      </Badge>
-                    ) : (
-                      <Badge variant="neutral">DRAFT</Badge>
-                    )}
-                  </div>
-
-                  <span className="form-detail-versions__timestamp">
-                    Updated {formatDate(v.updatedAt || v.createdAt)}
-                  </span>
-                </div>
-
-                <h4 className="form-detail-versions__card-title">{v.title}</h4>
-
-                {/* Structural Summary */}
-                <div className="form-detail-versions__summary-chips">
-                  <span className="summary-chip" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                    <span className="material-icon" style={{ fontSize: '14px', marginRight: '4px' }}>list_alt</span>
-                    {interactiveFields} {interactiveFields === 1 ? 'Data Field' : 'Data Fields'}
-                  </span>
-                  <span className="summary-chip" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                    <span className="material-icon" style={{ fontSize: '14px', marginRight: '4px' }}>view_quilt</span>
-                    {sectionsCount} {sectionsCount === 1 ? 'Section' : 'Sections'}
-                  </span>
-                  <span className="summary-chip" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                    <span className="material-icon" style={{ fontSize: '14px', marginRight: '4px' }}>dashboard_customize</span>
-                    {v.formLayout || 'column'} layout
-                  </span>
-                  <span className="summary-chip" style={{ display: 'inline-flex', alignItems: 'center' }}>
-                    <span className="material-icon" style={{ fontSize: '14px', marginRight: '4px' }}>person</span>
-                    Workspace Member
-                  </span>
-                </div>
+      {/* 2. Current Draft Working State Card */}
+      <div style={{ marginBottom: 'var(--space-6)' }}>
+        <h4 style={{ fontSize: 'var(--font-size-sm)', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-3)' }}>
+          Current Working Draft
+        </h4>
+        <div
+          className="form-detail-versions__card is-draft"
+          style={{
+            borderLeft: '4px solid var(--color-primary)',
+            backgroundColor: 'rgba(79, 70, 229, 0.02)',
+          }}
+          id="current-draft-card"
+        >
+          <div className="form-detail-versions__card-main">
+            <div className="form-detail-versions__card-header-row">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                <span className="form-detail-versions__version-tag" style={{ backgroundColor: 'rgba(79, 70, 229, 0.1)', color: 'var(--color-primary)' }}>
+                  Current Draft
+                </span>
+                {form.hasUnpublishedChanges ? (
+                  <Badge variant="warning" withDot>
+                    UNPUBLISHED DRAFT CHANGES
+                  </Badge>
+                ) : (
+                  <Badge variant="success" withDot>
+                    UP TO DATE WITH PRODUCTION
+                  </Badge>
+                )}
               </div>
 
-              {/* Right Column: Actions */}
-              <div className="form-detail-versions__card-actions">
-                {/* Edit draft (or inspect if deployed) */}
-                <Button
-                  variant={isDeployed ? 'secondary' : 'primary'}
-                  size="small"
-                  onClick={() => navigate(`/forms/${form.id}/edit?version=${v.id}`)}
-                  id={`edit-version-btn-${v.versionNumber}`}
+              <span className="form-detail-versions__timestamp">
+                Last edited {formatDate(draft?.updatedAt || form.updatedAt)}
+              </span>
+            </div>
+
+            <h4 className="form-detail-versions__card-title">
+              {draft?.title || form.name}
+            </h4>
+
+            {/* Structural Summary */}
+            <div className="form-detail-versions__summary-chips">
+              <span className="summary-chip" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                <span className="material-icon" style={{ fontSize: '14px', marginRight: '4px' }}>list_alt</span>
+                {draftInteractiveFields} {draftInteractiveFields === 1 ? 'Data Field' : 'Data Fields'}
+              </span>
+              <span className="summary-chip" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                <span className="material-icon" style={{ fontSize: '14px', marginRight: '4px' }}>view_quilt</span>
+                {draftSectionsCount} {draftSectionsCount === 1 ? 'Section' : 'Sections'}
+              </span>
+              <span className="summary-chip" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                <span className="material-icon" style={{ fontSize: '14px', marginRight: '4px' }}>dashboard_customize</span>
+                {draft?.formLayout || 'column'} layout
+              </span>
+            </div>
+          </div>
+
+          <div className="form-detail-versions__card-actions">
+            <Button
+              variant="primary"
+              size="small"
+              onClick={() => navigate(`/forms/${form.id}/edit`)}
+              id="btn-open-editor-from-draft"
+            >
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <span className="material-icon" style={{ fontSize: '14px' }}>edit</span>
+                Edit Draft
+              </span>
+            </Button>
+
+            <Button
+              variant="secondary"
+              size="small"
+              onClick={() => window.open(`/forms/${form.id}/preview`, '_blank')}
+              id="btn-preview-draft"
+            >
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <span className="material-icon" style={{ fontSize: '14px' }}>visibility</span>
+                Preview Draft
+              </span>
+            </Button>
+
+            <Button
+              variant="primary"
+              size="small"
+              onClick={handleDeployDraft}
+              isLoading={isDeployingDraft}
+              id="btn-deploy-draft-direct"
+              style={{ backgroundColor: '#059669', borderColor: '#059669' }}
+            >
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <span className="material-icon" style={{ fontSize: '14px' }}>rocket_launch</span>
+                Deploy to Production
+              </span>
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Immutable Deployment History List */}
+      <div>
+        <h4 style={{ fontSize: 'var(--font-size-sm)', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-3)' }}>
+          Deployment History (Immutable Snapshots)
+        </h4>
+
+        {sortedVersions.length === 0 ? (
+          <div
+            style={{
+              padding: 'var(--space-8)',
+              textAlign: 'center',
+              border: '1px dashed var(--color-border)',
+              borderRadius: 'var(--radius-lg)',
+              backgroundColor: 'var(--color-bg-secondary)',
+              color: 'var(--color-text-secondary)',
+            }}
+          >
+            <span className="material-icon" style={{ fontSize: '32px', color: 'var(--color-text-muted)', marginBottom: 'var(--space-2)' }}>
+              history_edu
+            </span>
+            <p style={{ fontWeight: 'var(--font-weight-medium)', marginBottom: 'var(--space-1)' }}>
+              No production deployment versions yet
+            </p>
+            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)' }}>
+              When you deploy the current draft, an immutable Version 1 snapshot will be created here and made live.
+            </p>
+            <Button variant="primary" size="small" onClick={handleDeployDraft} isLoading={isDeployingDraft}>
+              Deploy Draft as Version 1
+            </Button>
+          </div>
+        ) : (
+          <div className="form-detail-versions__list">
+            {sortedVersions.map((v) => {
+              const isDeployed = v.id === deployedVersionId || v.isDeployed;
+              const interactiveFields = (v.elements || []).filter((el) => isDataField(el.type)).length;
+              const sectionsCount = v.sections?.length || 1;
+
+              return (
+                <div
+                  key={v.id}
+                  className={`form-detail-versions__card ${isDeployed ? 'is-deployed' : 'is-draft'}`}
+                  id={`version-card-${v.versionNumber}`}
                 >
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                    <span className="material-icon" style={{ fontSize: '14px' }}>
-                      {isDeployed ? 'content_copy' : 'edit'}
-                    </span>
-                    {isDeployed ? 'Edit Copy' : 'Edit Draft'}
-                  </span>
-                </Button>
+                  {/* Left Column: Number, Status, Meta */}
+                  <div className="form-detail-versions__card-main">
+                    <div className="form-detail-versions__card-header-row">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                        <span className="form-detail-versions__version-tag">
+                          Version {v.versionNumber}
+                        </span>
 
-                {/* Preview */}
-                <Button
-                  variant="secondary"
-                  size="small"
-                  onClick={() =>
-                    window.open(`/forms/${form.id}/preview?version=${v.id}`, '_blank')
-                  }
-                  id={`preview-version-btn-${v.versionNumber}`}
-                >
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                    <span className="material-icon" style={{ fontSize: '14px' }}>visibility</span>
-                    Preview
-                  </span>
-                </Button>
+                        {isDeployed ? (
+                          <Badge variant="success" withDot>
+                            ACTIVE LIVE PRODUCTION
+                          </Badge>
+                        ) : (
+                          <Badge variant="neutral">HISTORICAL DEPLOYMENT</Badge>
+                        )}
+                      </div>
 
-                {/* Compare with deployed (if this isn't already the deployed version) */}
-                {deployedVersionId && !isDeployed && (
-                  <Button
-                    variant="ghost"
-                    size="small"
-                    onClick={() => handleOpenComparison(v.id)}
-                    title="Compare differences against currently deployed version"
-                    id={`compare-version-btn-${v.versionNumber}`}
-                  >
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <span className="material-icon" style={{ fontSize: '14px' }}>compare_arrows</span>
-                      Diff vs Live
-                    </span>
-                  </Button>
-                )}
-
-                {/* Duplicate */}
-                <Button
-                  variant="ghost"
-                  size="small"
-                  onClick={() => handleDuplicateVersion(v)}
-                  isLoading={duplicatingVersionId === v.id}
-                  title="Duplicate this version into a new draft"
-                  id={`duplicate-version-btn-${v.versionNumber}`}
-                >
-                  Duplicate
-                </Button>
-
-                {/* Deploy action */}
-                {!isDeployed ? (
-                  <Button
-                    variant="primary"
-                    size="small"
-                    onClick={() => setDeployTargetVersion(v)}
-                    id={`deploy-version-btn-${v.versionNumber}`}
-                    style={{ backgroundColor: '#059669', borderColor: '#059669' }}
-                  >
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <span className="material-icon" style={{ fontSize: '14px' }}>rocket_launch</span>
-                      Deploy
-                    </span>
-                  </Button>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                    <div className="form-detail-versions__active-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <span className="material-icon" style={{ fontSize: '14px' }}>check_circle</span>
-                      Currently Live
+                      <span className="form-detail-versions__timestamp">
+                        Deployed {formatDate(v.updatedAt || v.createdAt)}
+                      </span>
                     </div>
-                    {onNavigateTab && (
+
+                    <h4 className="form-detail-versions__card-title">{v.title}</h4>
+
+                    {/* Structural Summary */}
+                    <div className="form-detail-versions__summary-chips">
+                      <span className="summary-chip" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                        <span className="material-icon" style={{ fontSize: '14px', marginRight: '4px' }}>list_alt</span>
+                        {interactiveFields} {interactiveFields === 1 ? 'Data Field' : 'Data Fields'}
+                      </span>
+                      <span className="summary-chip" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                        <span className="material-icon" style={{ fontSize: '14px', marginRight: '4px' }}>view_quilt</span>
+                        {sectionsCount} {sectionsCount === 1 ? 'Section' : 'Sections'}
+                      </span>
+                      <span className="summary-chip" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                        <span className="material-icon" style={{ fontSize: '14px', marginRight: '4px' }}>dashboard_customize</span>
+                        {v.formLayout || 'column'} layout
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Actions */}
+                  <div className="form-detail-versions__card-actions">
+                    {/* Preview this historical version snapshot */}
+                    <Button
+                      variant="secondary"
+                      size="small"
+                      onClick={() =>
+                        window.open(`/forms/${form.id}/preview?version=${v.id}`, '_blank')
+                      }
+                      id={`preview-version-btn-${v.versionNumber}`}
+                    >
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <span className="material-icon" style={{ fontSize: '14px' }}>visibility</span>
+                        Preview Snapshot
+                      </span>
+                    </Button>
+
+                    {/* Compare with active deployed */}
+                    {deployedVersionId && !isDeployed && (
                       <Button
                         variant="ghost"
                         size="small"
-                        onClick={() => onNavigateTab('deployments')}
-                        title="View production deployment history"
+                        onClick={() => handleOpenComparison(v.id)}
+                        title="Compare differences against currently active deployed version"
+                        id={`compare-version-btn-${v.versionNumber}`}
                       >
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          Deployments
-                          <span className="material-icon" style={{ fontSize: '14px' }}>arrow_forward</span>
+                          <span className="material-icon" style={{ fontSize: '14px' }}>compare_arrows</span>
+                          Diff vs Active
                         </span>
                       </Button>
                     )}
+
+                    {/* Re-deploy action */}
+                    {!isDeployed ? (
+                      <Button
+                        variant="secondary"
+                        size="small"
+                        onClick={() => setDeployTargetVersion(v)}
+                        id={`redeploy-version-btn-${v.versionNumber}`}
+                      >
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <span className="material-icon" style={{ fontSize: '14px' }}>restore</span>
+                          Re-activate
+                        </span>
+                      </Button>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                        <div className="form-detail-versions__active-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <span className="material-icon" style={{ fontSize: '14px' }}>check_circle</span>
+                          Currently Live
+                        </div>
+                        {onNavigateTab && (
+                          <Button
+                            variant="ghost"
+                            size="small"
+                            onClick={() => onNavigateTab('deployments')}
+                            title="View production deployment history"
+                          >
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              Deployments
+                              <span className="material-icon" style={{ fontSize: '14px' }}>arrow_forward</span>
+                            </span>
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Deploy Confirmation Dialog */}
+      {/* Re-activate Confirmation Dialog */}
       <ConfirmDialog
         isOpen={!!deployTargetVersion}
         onClose={() => setDeployTargetVersion(null)}
-        onConfirm={handleConfirmDeploy}
-        title={`Deploy Version ${deployTargetVersion?.versionNumber} to Production?`}
+        onConfirm={handleConfirmDeployHistoricalVersion}
+        title={`Re-activate Version ${deployTargetVersion?.versionNumber} in Production?`}
         message={
           <div>
             <p>
-              You are about to publish <strong>Version {deployTargetVersion?.versionNumber}</strong> ("{deployTargetVersion?.title}") as the active live production version of <strong>{form.name}</strong>.
+              You are about to re-activate <strong>Version {deployTargetVersion?.versionNumber}</strong> ("{deployTargetVersion?.title}") as the active live production version of <strong>{form.name}</strong>.
             </p>
             <p style={{ marginTop: '8px', fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
-              Public visitors to <code>/f/{form.publicId}</code> will immediately see this updated form structure. Previous submissions remain safely preserved.
+              Public visitors to <code>/f/{form.publicId}</code> will immediately see this form structure. All historical submissions remain safely preserved.
             </p>
           </div>
         }
-        confirmLabel="Publish to Production"
+        confirmLabel="Re-activate Version"
         confirmVariant="primary"
-        isLoading={isDeploying}
+        isLoading={isDeployingVersion}
       />
 
       {/* Version Comparison Modal */}

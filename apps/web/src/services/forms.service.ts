@@ -6,6 +6,7 @@ import {
   FormDto,
   FormVersionDto,
   PublicFormDto,
+  UpdateDraftDto,
   UpdateVersionDto,
 } from '@saas/shared';
 
@@ -22,6 +23,14 @@ export const formsService = {
     return api.get<FormDto>(`/forms/${id}`);
   },
 
+  updateDraft: async (id: string, dto: UpdateDraftDto): Promise<FormDto> => {
+    return api.patch<FormDto>(`/forms/${id}/draft`, dto);
+  },
+
+  deploy: async (id: string): Promise<FormDto> => {
+    return api.post<FormDto>(`/forms/${id}/deploy`);
+  },
+
   createVersion: async (id: string, dto?: CreateVersionDto): Promise<FormVersionDto> => {
     return api.post<FormVersionDto>(`/forms/${id}/versions`, dto || {});
   },
@@ -34,8 +43,11 @@ export const formsService = {
     return api.patch<FormVersionDto>(`/forms/${id}/versions/${versionId}`, dto);
   },
 
-  deployVersion: async (id: string, versionId: string): Promise<FormDto> => {
-    return api.post<FormDto>(`/forms/${id}/versions/${versionId}/deploy`);
+  deployVersion: async (id: string, versionId?: string): Promise<FormDto> => {
+    if (versionId) {
+      return api.post<FormDto>(`/forms/${id}/versions/${versionId}/deploy`);
+    }
+    return api.post<FormDto>(`/forms/${id}/deploy`);
   },
 
   duplicateVersion: async (id: string, versionId: string): Promise<FormVersionDto> => {

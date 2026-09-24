@@ -9,14 +9,12 @@ import { formsService } from '../../services/forms.service';
 import {
   AuthLayout,
   Card,
-  CardHeader,
   CardContent,
   Spinner,
   Alert,
   Button,
 } from '../../components';
-import { FormRenderer } from './renderer/FormRenderer';
-import './builder/FormCanvasHierarchical.scss';
+import { PublicFormView } from './public/PublicFormView';
 
 export const PublicFormPage: React.FC = () => {
   const { publicId } = useParams<{ publicId: string }>();
@@ -181,6 +179,12 @@ export const PublicFormPage: React.FC = () => {
     setError(null);
   };
 
+  useEffect(() => {
+    if (form?.name) {
+      document.title = form.name;
+    }
+  }, [form?.name]);
+
   if (loading) {
     return (
       <AuthLayout>
@@ -212,8 +216,7 @@ export const PublicFormPage: React.FC = () => {
       <AuthLayout>
         <div style={{ maxWidth: '520px', width: '100%' }}>
           <Card>
-            <CardHeader title={form?.name || 'Form'} />
-            <CardContent>
+            <CardContent style={{ padding: 'var(--space-6)' }}>
               <Alert variant="warning" title="Form Not Deployed">
                 This form has not been deployed yet. Please check back later.
               </Alert>
@@ -228,35 +231,7 @@ export const PublicFormPage: React.FC = () => {
     <AuthLayout>
       <div style={{ maxWidth: '840px', width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
         <Card>
-          <CardHeader
-            title={
-              <span
-                style={{
-                  fontSize: 'var(--font-size-xs)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  color: 'var(--color-text-secondary)',
-                }}
-              >
-                {form.name}
-              </span>
-            }
-          />
-
           <CardContent style={{ padding: 'var(--space-8)' }}>
-            <h1
-              id="public-form-title"
-              style={{
-                fontSize: 'var(--font-size-2xl)',
-                fontWeight: 'var(--font-weight-bold)',
-                color: 'var(--color-text-primary)',
-                margin: '0 0 var(--space-6) 0',
-                lineHeight: 'var(--line-height-tight)',
-              }}
-            >
-              {form.title || form.name}
-            </h1>
-
             {error && (
               <div style={{ marginBottom: 'var(--space-6)' }}>
                 <Alert variant="error">{error}</Alert>
@@ -300,8 +275,7 @@ export const PublicFormPage: React.FC = () => {
                 </Button>
               </div>
             ) : (
-              <FormRenderer
-                mode="published"
+              <PublicFormView
                 formLayout={form.formLayout || 'column'}
                 sections={form.sections || []}
                 elements={form.elements || []}
@@ -311,9 +285,6 @@ export const PublicFormPage: React.FC = () => {
                 disabled={submitting}
                 isSubmitting={submitting}
                 onSubmit={handleSubmit}
-                onReset={handleReset}
-                showSubmitButton={true}
-                submitButtonText="Submit Response"
                 customCss={form.customCss}
                 formId={form.publicId}
               />

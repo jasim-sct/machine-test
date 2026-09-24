@@ -72,13 +72,45 @@ export interface FormElement {
   alertVariant?: 'info' | 'warning' | 'success'; // for alert
   validation?: FieldValidation;
   colSpan?: number; // legacy backward compatibility
+  customWidth?: string; // e.g. '100%', '50%', '300px' (max-width capped at 100%)
+  customHeight?: string; // e.g. '40px', '120px', 'auto'
 }
+
+export type ZoneAlignment =
+  | 'top-left'
+  | 'top-center'
+  | 'top-right'
+  | 'center-left'
+  | 'center'
+  | 'center-right'
+  | 'bottom-left'
+  | 'bottom-center'
+  | 'bottom-right';
+
+export type HorizontalAlignment =
+  | 'start'
+  | 'center'
+  | 'end'
+  | 'space-between'
+  | 'space-around'
+  | 'space-evenly';
+
+export type VerticalAlignment =
+  | 'start'
+  | 'center'
+  | 'end'
+  | 'stretch';
 
 export interface FormZone {
   id: string;
   name?: string;
   layout: LayoutDirection; // controls element arrangement: 'column' | 'row'
   responsiveWidth: ResponsiveZoneWidth;
+  alignment?: ZoneAlignment; // Visual 3x3 flex positioning
+  horizontalAlign?: HorizontalAlignment;
+  verticalAlign?: VerticalAlignment;
+  customWidth?: string;
+  customHeight?: string;
   elements: FormElement[];
 }
 
@@ -87,6 +119,11 @@ export interface FormSection {
   name?: string;
   title?: string;
   layout: LayoutDirection; // controls zone arrangement: 'row' | 'column'
+  columns?: number; // Visual column count: 1, 2, 3, 4
+  horizontalAlign?: HorizontalAlignment;
+  verticalAlign?: VerticalAlignment;
+  customWidth?: string;
+  customHeight?: string;
   zones: FormZone[];
 }
 
@@ -139,11 +176,21 @@ export interface FormActivityDto {
   metadata?: Record<string, any>;
 }
 
+export interface FormDraftDto {
+  title: string;
+  elements: FormElement[];
+  sections?: FormSection[];
+  formLayout?: LayoutDirection;
+  customCss?: string;
+  updatedAt?: string;
+}
+
 export interface FormDto {
   id: string;
   name: string;
   userId: string;
   publicId: string;
+  draft?: FormDraftDto;
   deployedVersionId: string | null;
   deployedVersion?: FormVersionDto | null;
   versions?: FormVersionDto[];
@@ -152,6 +199,7 @@ export interface FormDto {
   settings?: FormSettingsDto;
   deployments?: FormDeploymentDto[];
   activities?: FormActivityDto[];
+  hasUnpublishedChanges?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -170,6 +218,14 @@ export interface PublicFormDto {
 
 export interface CreateFormDto {
   name: string;
+}
+
+export interface UpdateDraftDto {
+  title?: string;
+  elements?: FormElement[];
+  sections?: FormSection[];
+  formLayout?: LayoutDirection;
+  customCss?: string;
 }
 
 export interface CreateVersionDto {
@@ -547,4 +603,72 @@ export function formatSubmissionData(
     }
   }
   return result;
+}
+
+export function getZoneFlexStyles(
+  layout: LayoutDirection,
+  alignment?: ZoneAlignment,
+  horizontalAlign?: HorizontalAlignment,
+  verticalAlign?: VerticalAlignment,
+): { justifyContent?: string; alignItems?: string } {
+  let justifyContent: string | undefined;
+  let alignItems: string | undefined;
+
+  if (alignment) {
+    switch (alignment) {
+      case 'top-left':
+        justifyContent = 'flex-start';
+        alignItems = 'flex-start';
+        break;
+      case 'top-center':
+        justifyContent = layout === 'row' ? 'center' : 'flex-start';
+        alignItems = layout === 'row' ? 'flex-start' : 'center';
+        break;
+      case 'top-right':
+        justifyContent = layout === 'row' ? 'flex-end' : 'flex-start';
+        alignItems = layout === 'row' ? 'flex-start' : 'flex-end';
+        break;
+      case 'center-left':
+        justifyContent = layout === 'row' ? 'flex-start' : 'center';
+        alignItems = layout === 'row' ? 'center' : 'flex-start';
+        break;
+      case 'center':
+        justifyContent = 'center';
+        alignItems = 'center';
+        break;
+      case 'center-right':
+        justifyContent = layout === 'row' ? 'flex-end' : 'center';
+        alignItems = layout === 'row' ? 'center' : 'flex-end';
+        break;
+      case 'bottom-left':
+        justifyContent = layout === 'row' ? 'flex-start' : 'flex-end';
+        alignItems = layout === 'row' ? 'flex-end' : 'flex-start';
+        break;
+      case 'bottom-center':
+        justifyContent = layout === 'row' ? 'center' : 'flex-end';
+        alignItems = layout === 'row' ? 'flex-end' : 'center';
+        break;
+      case 'bottom-right':
+        justifyContent = 'flex-end';
+        alignItems = 'flex-end';
+        break;
+    }
+  } else {
+    if (horizontalAlign) {
+      if (layout === 'row') {
+        justifyContent = horizontalAlign === 'start' ? 'flex-start' : horizontalAlign === 'end' ? 'flex-end' : horizontalAlign;
+      } else {
+        alignItems = horizontalAlign === 'start' ? 'flex-start' : horizontalAlign === 'end' ? 'flex-end' : horizontalAlign === 'center' ? 'center' : undefined;
+      }
+    }
+    if (verticalAlign) {
+      if (layout === 'row') {
+        alignItems = verticalAlign === 'start' ? 'flex-start' : verticalAlign === 'end' ? 'flex-end' : verticalAlign;
+      } else {
+        justifyContent = verticalAlign === 'start' ? 'flex-start' : verticalAlign === 'end' ? 'flex-end' : verticalAlign === 'center' ? 'center' : undefined;
+      }
+    }
+  }
+
+  return { justifyContent, alignItems };
 }
