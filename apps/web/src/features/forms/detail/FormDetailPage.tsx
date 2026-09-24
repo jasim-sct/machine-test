@@ -70,7 +70,10 @@ export const FormDetailPage: React.FC = () => {
           <Alert variant="error">{error || 'Form not found'}</Alert>
           <div style={{ marginTop: 'var(--space-4)' }}>
             <Button variant="secondary" onClick={() => navigate('/forms')}>
-              ← Back to Forms
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span className="material-icon" style={{ fontSize: '16px' }}>arrow_back</span>
+                Back to Forms
+              </span>
             </Button>
           </div>
         </div>
@@ -94,41 +97,41 @@ export const FormDetailPage: React.FC = () => {
     {
       id: 'overview',
       label: 'Overview',
-      icon: '📊',
+      icon: 'dashboard',
     },
     {
       id: 'fields',
       label: 'Fields',
-      icon: '📋',
+      icon: 'format_list_bulleted',
       badge: latestDraft?.elements?.length || 0,
     },
     {
       id: 'data',
       label: 'Data',
-      icon: '📥',
+      icon: 'table_chart',
       badge: form.submissionsCount !== undefined ? form.submissionsCount : 0,
     },
     {
       id: 'versions',
       label: 'Versions',
-      icon: '🏷️',
+      icon: 'history',
       badge: form.versionsCount || versions.length || 1,
     },
     {
       id: 'deployments',
       label: 'Deployments',
-      icon: '🚀',
+      icon: 'rocket_launch',
       badge: form.deployments?.length || (isDeployed ? 1 : 0),
     },
     {
       id: 'activity',
       label: 'Activity',
-      icon: '📅',
+      icon: 'schedule',
     },
     {
       id: 'settings',
       label: 'Settings',
-      icon: '⚙️',
+      icon: 'settings',
     },
   ];
 
@@ -187,7 +190,10 @@ export const FormDetailPage: React.FC = () => {
                 onClick={() => window.open(`/f/${form.publicId}`, '_blank')}
                 id="header-open-live-btn"
               >
-                Open Form ↗
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  Open Form
+                  <span className="material-icon" style={{ fontSize: '14px' }}>open_in_new</span>
+                </span>
               </Button>
             )}
 
@@ -203,7 +209,10 @@ export const FormDetailPage: React.FC = () => {
               }
               id="header-edit-draft-btn"
             >
-              ✏️ Edit Latest Draft
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span className="material-icon" style={{ fontSize: '16px' }}>edit</span>
+                Edit Latest Draft
+              </span>
             </Button>
 
             <Button
@@ -219,7 +228,10 @@ export const FormDetailPage: React.FC = () => {
               }
               id="header-preview-btn"
             >
-              👁️ Preview
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span className="material-icon" style={{ fontSize: '16px' }}>visibility</span>
+                Preview
+              </span>
             </Button>
           </div>
         </header>
@@ -240,7 +252,7 @@ export const FormDetailPage: React.FC = () => {
                     id={`nav-tab-${tab.id}`}
                   >
                     <div className="item-left">
-                      <span className="item-icon">{tab.icon}</span>
+                      <span className="material-icon item-icon" style={{ fontSize: '18px' }}>{tab.icon}</span>
                       <span>{tab.label}</span>
                     </div>
 

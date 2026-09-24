@@ -205,7 +205,10 @@ export const VersionComparisonModal: React.FC<VersionComparisonModalProps> = ({
                 }}
                 id="comparison-deploy-a-btn"
               >
-                🚀 Deploy Version {versionA.versionNumber} to Live Production
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <span className="material-icon" style={{ fontSize: '16px' }}>rocket_launch</span>
+                  Deploy Version {versionA.versionNumber} to Live Production
+                </span>
               </Button>
             )}
           </div>
@@ -246,7 +249,7 @@ export const VersionComparisonModal: React.FC<VersionComparisonModalProps> = ({
             >
               {versions.map((v) => (
                 <option key={v.id} value={v.id}>
-                  Version {v.versionNumber} {v.id === deployedVersionId ? '★ (DEPLOYED LIVE)' : '(Draft)'} — {v.title}
+                  Version {v.versionNumber} {v.id === deployedVersionId ? '(DEPLOYED LIVE)' : '(Draft)'} — {v.title}
                 </option>
               ))}
             </select>
@@ -311,7 +314,9 @@ export const VersionComparisonModal: React.FC<VersionComparisonModalProps> = ({
         {/* Diff Result List */}
         {!hasDifferences ? (
           <div className="version-comparison__empty-identical">
-            <span style={{ fontSize: '2rem' }}>🎉</span>
+            <span className="material-icon" style={{ fontSize: '36px', color: 'var(--color-success)' }}>
+              check_circle
+            </span>
             <h4>Versions are structurally identical</h4>
             <p>All field names, requirements, and validation rules match exactly.</p>
           </div>

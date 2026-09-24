@@ -728,7 +728,10 @@ export const FormEditorPage: React.FC = () => {
             cursor: 'pointer',
           }}
         >
-          ← Return to Forms
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <span className="material-icon" style={{ fontSize: '18px' }}>arrow_back</span>
+            Return to Forms
+          </span>
         </button>
       </div>
     );

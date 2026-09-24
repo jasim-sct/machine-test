@@ -59,7 +59,10 @@ export const FormDataPage: React.FC = () => {
           </Alert>
         </div>
         <Button variant="secondary" onClick={() => navigate(`/forms/${id}`)}>
-          ← Back to Form Editor
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <span className="material-icon" style={{ fontSize: '18px' }}>arrow_back</span>
+            Back to Form Editor
+          </span>
         </Button>
       </ContentContainer>
     );
@@ -100,7 +103,10 @@ export const FormDataPage: React.FC = () => {
             onClick={() => navigate(`/forms/${id}`)}
             id="back-to-editor-btn"
           >
-            ← Back to Editor
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span className="material-icon" style={{ fontSize: '16px' }}>arrow_back</span>
+              Back to Editor
+            </span>
           </Button>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -125,7 +131,10 @@ export const FormDataPage: React.FC = () => {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <Button variant="secondary" size="small" onClick={loadData} id="refresh-data-btn">
-            🔄 Refresh
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span className="material-icon" style={{ fontSize: '16px' }}>refresh</span>
+              Refresh
+            </span>
           </Button>
           <Button
             variant="primary"
@@ -133,7 +142,10 @@ export const FormDataPage: React.FC = () => {
             onClick={() => navigate(`/forms/${id}`)}
             id="open-editor-btn"
           >
-            ✏️ Edit Form
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span className="material-icon" style={{ fontSize: '16px' }}>edit</span>
+              Edit Form
+            </span>
           </Button>
         </div>
       </div>
@@ -409,7 +421,7 @@ export const FormDataPage: React.FC = () => {
                             ) : typeof cellVal === 'boolean' ? (
                               cellVal ? (
                                 <Badge variant="success" size="small">
-                                  ✓ Yes
+                                  Yes
                                 </Badge>
                               ) : (
                                 <Badge variant="neutral" size="small">

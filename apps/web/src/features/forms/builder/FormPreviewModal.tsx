@@ -167,8 +167,9 @@ export const FormPreviewModal: React.FC<FormPreviewModalProps> = ({
       title={`Live Form Preview: ${formTitle || 'Untitled Form'} (Draft v${versionNumber || 1})`}
       footer={
         <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-          <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
-            ⚠️ User Preview: No editor controls, full interactive field behavior, and real validation rules.
+          <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span className="material-icon" style={{ fontSize: '16px' }}>info</span>
+            User Preview: No editor controls, full interactive field behavior, and real validation rules.
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
             <Button variant="secondary" size="small" onClick={handleReset}>
@@ -208,7 +209,10 @@ export const FormPreviewModal: React.FC<FormPreviewModalProps> = ({
               fontWeight: 'var(--font-weight-medium)',
             }}
           >
-            🖥 Desktop
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <span className="material-icon" style={{ fontSize: '14px' }}>desktop_windows</span>
+              Desktop
+            </span>
           </button>
           <button
             type="button"
@@ -224,7 +228,10 @@ export const FormPreviewModal: React.FC<FormPreviewModalProps> = ({
               fontWeight: 'var(--font-weight-medium)',
             }}
           >
-            📱 Tablet (768px)
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <span className="material-icon" style={{ fontSize: '14px' }}>tablet_mac</span>
+              Tablet (768px)
+            </span>
           </button>
           <button
             type="button"
@@ -240,7 +247,10 @@ export const FormPreviewModal: React.FC<FormPreviewModalProps> = ({
               fontWeight: 'var(--font-weight-medium)',
             }}
           >
-            📲 Mobile (375px - 320px)
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <span className="material-icon" style={{ fontSize: '14px' }}>phone_iphone</span>
+              Mobile (375px - 320px)
+            </span>
           </button>
         </div>
 
@@ -261,7 +271,10 @@ export const FormPreviewModal: React.FC<FormPreviewModalProps> = ({
           {submitted && (
             <div style={{ marginBottom: 'var(--space-4)' }}>
               <Alert variant="success">
-                ✓ Form simulation completed successfully! All validation requirements satisfied.
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <span className="material-icon" style={{ fontSize: '16px' }}>check_circle</span>
+                  Form simulation completed successfully! All validation requirements satisfied.
+                </span>
               </Alert>
             </div>
           )}
@@ -332,7 +345,17 @@ export const FormPreviewModal: React.FC<FormPreviewModalProps> = ({
                 onClick={copyDataToClipboard}
                 style={{ fontSize: '11px', padding: '2px 8px' }}
               >
-                {copiedData ? '✓ Copied' : '📋 Copy JSON'}
+                {copiedData ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <span className="material-icon" style={{ fontSize: '14px' }}>check</span>
+                    Copied
+                  </span>
+                ) : (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <span className="material-icon" style={{ fontSize: '14px' }}>content_copy</span>
+                    Copy JSON
+                  </span>
+                )}
               </Button>
             </div>
 

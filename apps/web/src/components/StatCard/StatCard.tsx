@@ -27,7 +27,11 @@ export const StatCard: React.FC<StatCardProps> = ({
     <div className={`stat-card ${className}`.trim()}>
       <div className="stat-card__top">
         <h4 className="stat-card__title">{title}</h4>
-        {icon && <div className="stat-card__icon">{icon}</div>}
+        {icon && (
+          <div className="stat-card__icon">
+            {typeof icon === 'string' ? <span className="material-icon">{icon}</span> : icon}
+          </div>
+        )}
       </div>
 
       <div className="stat-card__value">
@@ -41,8 +45,12 @@ export const StatCard: React.FC<StatCardProps> = ({
               className={`stat-card__trend stat-card__trend--${
                 trend.isPositive ? 'positive' : 'negative'
               }`}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}
             >
-              {trend.isPositive ? '↑' : '↓'} {trend.value}
+              <span className="material-icon" style={{ fontSize: '14px' }}>
+                {trend.isPositive ? 'trending_up' : 'trending_down'}
+              </span>
+              <span>{trend.value}</span>
             </span>
           )}
           {description && <span>{description}</span>}

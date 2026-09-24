@@ -168,9 +168,9 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
       success: '#34d399',
     };
     const iconMap = {
-      info: 'ℹ',
-      warning: '⚠',
-      success: '✓',
+      info: 'info',
+      warning: 'warning',
+      success: 'check_circle',
     };
 
     return (
@@ -188,7 +188,9 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
           margin: 'var(--space-1) 0',
         }}
       >
-        <span style={{ color: textMap[variant], fontWeight: 'bold' }}>{iconMap[variant]}</span>
+        <span className="material-icon" style={{ color: textMap[variant], fontSize: '18px' }}>
+          {iconMap[variant]}
+        </span>
         <div style={{ flex: 1 }}>{element.content || element.label || 'Notice message.'}</div>
       </div>
     );
@@ -413,7 +415,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
             marginTop: 'var(--space-1)',
           }}
         >
-          <span>✕</span>
+          <span className="material-icon" style={{ fontSize: '14px' }}>error</span>
           <span>{validationMessage}</span>
         </div>
       );
@@ -431,7 +433,7 @@ export const FieldRenderer: React.FC<FieldRendererProps> = ({
             marginTop: 'var(--space-1)',
           }}
         >
-          <span>✓</span>
+          <span className="material-icon" style={{ fontSize: '14px' }}>check_circle</span>
           <span>{validationMessage}</span>
         </div>
       );

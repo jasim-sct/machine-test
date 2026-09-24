@@ -16,7 +16,7 @@ export const PALETTE_ITEMS: PaletteItem[] = [
   {
     type: 'text',
     title: 'Text Input',
-    icon: '🔤',
+    icon: 'text_fields',
     description: 'Single-line text field',
     category: 'interactive',
     dataType: 'text',
@@ -24,7 +24,7 @@ export const PALETTE_ITEMS: PaletteItem[] = [
   {
     type: 'email',
     title: 'Email Field',
-    icon: '✉️',
+    icon: 'alternate_email',
     description: 'Email address with validation',
     category: 'interactive',
     dataType: 'text',
@@ -32,7 +32,7 @@ export const PALETTE_ITEMS: PaletteItem[] = [
   {
     type: 'number',
     title: 'Number',
-    icon: '🔢',
+    icon: 'tag',
     description: 'Numeric input',
     category: 'interactive',
     dataType: 'number',
@@ -40,7 +40,7 @@ export const PALETTE_ITEMS: PaletteItem[] = [
   {
     type: 'phone',
     title: 'Phone Number',
-    icon: '📞',
+    icon: 'call',
     description: 'Telephone input',
     category: 'interactive',
     dataType: 'number',
@@ -48,7 +48,7 @@ export const PALETTE_ITEMS: PaletteItem[] = [
   {
     type: 'date',
     title: 'Date Picker',
-    icon: '📅',
+    icon: 'calendar_today',
     description: 'Calendar date selection',
     category: 'interactive',
     dataType: 'date',
@@ -56,7 +56,7 @@ export const PALETTE_ITEMS: PaletteItem[] = [
   {
     type: 'textarea',
     title: 'Text Area',
-    icon: '📝',
+    icon: 'notes',
     description: 'Multi-line comments or notes',
     category: 'interactive',
     dataType: 'text',
@@ -64,7 +64,7 @@ export const PALETTE_ITEMS: PaletteItem[] = [
   {
     type: 'select',
     title: 'Dropdown',
-    icon: '🔽',
+    icon: 'arrow_drop_down_circle',
     description: 'Pick an option from dropdown',
     category: 'interactive',
     dataType: 'text',
@@ -72,7 +72,7 @@ export const PALETTE_ITEMS: PaletteItem[] = [
   {
     type: 'radio',
     title: 'Radio Group',
-    icon: '🔘',
+    icon: 'radio_button_checked',
     description: 'Single selection from list',
     category: 'interactive',
     dataType: 'text',
@@ -80,7 +80,7 @@ export const PALETTE_ITEMS: PaletteItem[] = [
   {
     type: 'checkbox',
     title: 'Checkbox',
-    icon: '☑️',
+    icon: 'check_box',
     description: 'Boolean consent or toggle',
     category: 'interactive',
     dataType: 'boolean',
@@ -88,7 +88,7 @@ export const PALETTE_ITEMS: PaletteItem[] = [
   {
     type: 'file',
     title: 'File Upload',
-    icon: '📎',
+    icon: 'attach_file',
     description: 'Document or image upload',
     category: 'interactive',
     dataType: 'file',
@@ -96,7 +96,7 @@ export const PALETTE_ITEMS: PaletteItem[] = [
   {
     type: 'button',
     title: 'Button',
-    icon: '⚡',
+    icon: 'smart_button',
     description: 'Submit or action button',
     category: 'interactive',
   },
@@ -105,35 +105,35 @@ export const PALETTE_ITEMS: PaletteItem[] = [
   {
     type: 'title',
     title: 'Heading',
-    icon: '🏷️',
+    icon: 'title',
     description: 'Large or medium title heading',
     category: 'display',
   },
   {
     type: 'description',
     title: 'Description',
-    icon: '📄',
+    icon: 'article',
     description: 'Instructive paragraph or note',
     category: 'display',
   },
   {
     type: 'divider',
     title: 'Divider',
-    icon: '➖',
+    icon: 'horizontal_rule',
     description: 'Clean visual horizontal separator',
     category: 'display',
   },
   {
     type: 'alert',
     title: 'Notice Card',
-    icon: '💡',
+    icon: 'info',
     description: 'Callout info, warning, or tip',
     category: 'display',
   },
   {
     type: 'spacer',
     title: 'Spacer',
-    icon: '↕️',
+    icon: 'height',
     description: 'Vertical layout spacing',
     category: 'display',
   },
@@ -279,7 +279,9 @@ export const ElementPalette: React.FC<ElementPaletteProps> = ({ onAddElement }) 
               }}
               title={`Drag or click to add ${item.title}`}
             >
-              <span style={{ fontSize: 'var(--font-size-lg)' }}>{item.icon}</span>
+              <span className="material-icon" style={{ fontSize: '20px', color: 'var(--color-primary)' }}>
+                {item.icon}
+              </span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{

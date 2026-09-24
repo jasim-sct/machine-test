@@ -155,7 +155,10 @@ export const VersionsSection: React.FC<VersionsSectionProps> = ({
             disabled={versions.length < 2}
             id="open-comparison-tool-btn"
           >
-            ⚖️ Compare Versions
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span className="material-icon" style={{ fontSize: '16px' }}>compare_arrows</span>
+              Compare Versions
+            </span>
           </Button>
 
           <Button
@@ -165,7 +168,10 @@ export const VersionsSection: React.FC<VersionsSectionProps> = ({
             isLoading={isCreatingNewVersion}
             id="create-new-draft-btn"
           >
-            + New Draft Version
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span className="material-icon" style={{ fontSize: '16px' }}>add</span>
+              New Draft Version
+            </span>
           </Button>
         </div>
       </div>
@@ -215,17 +221,21 @@ export const VersionsSection: React.FC<VersionsSectionProps> = ({
 
                 {/* Structural Summary */}
                 <div className="form-detail-versions__summary-chips">
-                  <span className="summary-chip">
-                    📋 {interactiveFields} {interactiveFields === 1 ? 'Data Field' : 'Data Fields'}
+                  <span className="summary-chip" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    <span className="material-icon" style={{ fontSize: '14px', marginRight: '4px' }}>list_alt</span>
+                    {interactiveFields} {interactiveFields === 1 ? 'Data Field' : 'Data Fields'}
                   </span>
-                  <span className="summary-chip">
-                    🧱 {sectionsCount} {sectionsCount === 1 ? 'Section' : 'Sections'}
+                  <span className="summary-chip" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    <span className="material-icon" style={{ fontSize: '14px', marginRight: '4px' }}>view_quilt</span>
+                    {sectionsCount} {sectionsCount === 1 ? 'Section' : 'Sections'}
                   </span>
-                  <span className="summary-chip">
-                    📐 {v.formLayout || 'column'} layout
+                  <span className="summary-chip" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    <span className="material-icon" style={{ fontSize: '14px', marginRight: '4px' }}>dashboard_customize</span>
+                    {v.formLayout || 'column'} layout
                   </span>
-                  <span className="summary-chip">
-                    👤 Workspace Member
+                  <span className="summary-chip" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                    <span className="material-icon" style={{ fontSize: '14px', marginRight: '4px' }}>person</span>
+                    Workspace Member
                   </span>
                 </div>
               </div>
@@ -239,7 +249,12 @@ export const VersionsSection: React.FC<VersionsSectionProps> = ({
                   onClick={() => navigate(`/forms/${form.id}/edit?version=${v.id}`)}
                   id={`edit-version-btn-${v.versionNumber}`}
                 >
-                  {isDeployed ? '✏️ Edit Copy' : '✏️ Edit Draft'}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <span className="material-icon" style={{ fontSize: '14px' }}>
+                      {isDeployed ? 'content_copy' : 'edit'}
+                    </span>
+                    {isDeployed ? 'Edit Copy' : 'Edit Draft'}
+                  </span>
                 </Button>
 
                 {/* Preview */}
@@ -251,7 +266,10 @@ export const VersionsSection: React.FC<VersionsSectionProps> = ({
                   }
                   id={`preview-version-btn-${v.versionNumber}`}
                 >
-                  👁️ Preview
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <span className="material-icon" style={{ fontSize: '14px' }}>visibility</span>
+                    Preview
+                  </span>
                 </Button>
 
                 {/* Compare with deployed (if this isn't already the deployed version) */}
@@ -263,7 +281,10 @@ export const VersionsSection: React.FC<VersionsSectionProps> = ({
                     title="Compare differences against currently deployed version"
                     id={`compare-version-btn-${v.versionNumber}`}
                   >
-                    ⚖️ Diff vs Live
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <span className="material-icon" style={{ fontSize: '14px' }}>compare_arrows</span>
+                      Diff vs Live
+                    </span>
                   </Button>
                 )}
 
@@ -288,12 +309,16 @@ export const VersionsSection: React.FC<VersionsSectionProps> = ({
                     id={`deploy-version-btn-${v.versionNumber}`}
                     style={{ backgroundColor: '#059669', borderColor: '#059669' }}
                   >
-                    🚀 Deploy
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <span className="material-icon" style={{ fontSize: '14px' }}>rocket_launch</span>
+                      Deploy
+                    </span>
                   </Button>
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                    <div className="form-detail-versions__active-pill">
-                      ✓ Currently Live
+                    <div className="form-detail-versions__active-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <span className="material-icon" style={{ fontSize: '14px' }}>check_circle</span>
+                      Currently Live
                     </div>
                     {onNavigateTab && (
                       <Button
@@ -302,7 +327,10 @@ export const VersionsSection: React.FC<VersionsSectionProps> = ({
                         onClick={() => onNavigateTab('deployments')}
                         title="View production deployment history"
                       >
-                        Deployments →
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          Deployments
+                          <span className="material-icon" style={{ fontSize: '14px' }}>arrow_forward</span>
+                        </span>
                       </Button>
                     )}
                   </div>

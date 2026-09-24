@@ -154,7 +154,12 @@ export const FormsPage: React.FC = () => {
               onClick={() => copyPublicUrl(form.publicId)}
               id={`copy-url-${form.id}`}
             >
-              {isCopied ? '✓ Copied' : 'Copy Link'}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <span className="material-icon" style={{ fontSize: '14px' }}>
+                  {isCopied ? 'check' : 'content_copy'}
+                </span>
+                {isCopied ? 'Copied' : 'Copy Link'}
+              </span>
             </Button>
             <a
               href={`/f/${form.publicId}`}
@@ -164,10 +169,12 @@ export const FormsPage: React.FC = () => {
                 fontSize: 'var(--font-size-sm)',
                 color: 'var(--color-primary)',
                 textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
               }}
               title="Open public page in new tab"
             >
-              ↗
+              <span className="material-icon" style={{ fontSize: '16px' }}>open_in_new</span>
             </a>
           </div>
         );
@@ -201,7 +208,10 @@ export const FormsPage: React.FC = () => {
             onClick={() => navigate(`/forms/${form.id}`)}
             id={`open-detail-btn-${form.id}`}
           >
-            Manage →
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              Manage
+              <span className="material-icon" style={{ fontSize: '14px' }}>arrow_forward</span>
+            </span>
           </Button>
         </div>
       ),
@@ -222,7 +232,10 @@ export const FormsPage: React.FC = () => {
             }}
             id="create-form-btn"
           >
-            + Create Form
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <span className="material-icon" style={{ fontSize: '16px' }}>add</span>
+              Create Form
+            </span>
           </Button>
         }
       />
@@ -231,7 +244,7 @@ export const FormsPage: React.FC = () => {
 
       {!loading && forms.length === 0 ? (
         <EmptyState
-          icon="📝"
+          icon={<span className="material-icon" style={{ fontSize: '36px' }}>description</span>}
           title="No forms created yet"
           description="Build your first form by giving it a name. You can manage multiple draft versions and publish anytime."
           action={
@@ -243,7 +256,10 @@ export const FormsPage: React.FC = () => {
               }}
               id="empty-create-form-btn"
             >
-              + Create Form
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <span className="material-icon" style={{ fontSize: '16px' }}>add</span>
+                Create Form
+              </span>
             </Button>
           }
         />

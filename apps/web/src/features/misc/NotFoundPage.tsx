@@ -25,7 +25,7 @@ export const NotFoundPage: React.FC = () => {
     <AuthLayout>
       <div style={{ maxWidth: '480px', width: '100%' }}>
         <EmptyState
-          icon="🔍"
+          icon={<span className="material-icon" style={{ fontSize: '36px' }}>search</span>}
           title="404 - Page Not Found"
           description="The page you are looking for doesn't exist, has been moved, or is inaccessible."
           action={

@@ -41,7 +41,7 @@ export const ProfileMenu: React.FC<ProfileMenuProps> = ({ className = '' }) => {
               navigate('/profile');
             }}
           >
-            <span>👤</span> View Profile
+            <span className="material-icon" style={{ fontSize: '18px', marginRight: '8px' }}>person</span> View Profile
           </button>
           <hr className="profile-menu__divider" />
           <button
@@ -53,7 +53,7 @@ export const ProfileMenu: React.FC<ProfileMenuProps> = ({ className = '' }) => {
               logout();
             }}
           >
-            <span>🚪</span> Sign out
+            <span className="material-icon" style={{ fontSize: '18px', marginRight: '8px' }}>logout</span> Sign out
           </button>
         </div>
       )}

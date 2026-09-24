@@ -202,7 +202,10 @@ export const DataSection: React.FC<DataSectionProps> = ({ form }) => {
         <Alert variant="error">{error || 'Failed to load form submission data'}</Alert>
         <div style={{ marginTop: 'var(--space-4)' }}>
           <Button variant="secondary" onClick={loadData}>
-            🔄 Try Again
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span className="material-icon" style={{ fontSize: '16px' }}>refresh</span>
+              Try Again
+            </span>
           </Button>
         </div>
       </div>
@@ -238,7 +241,10 @@ export const DataSection: React.FC<DataSectionProps> = ({ form }) => {
             onClick={loadData}
             id="data-refresh-btn"
           >
-            🔄 Refresh
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span className="material-icon" style={{ fontSize: '16px' }}>refresh</span>
+              Refresh
+            </span>
           </Button>
           <Button
             variant="secondary"
@@ -247,7 +253,10 @@ export const DataSection: React.FC<DataSectionProps> = ({ form }) => {
             disabled={filteredAndSortedRows.length === 0}
             id="data-export-csv-btn"
           >
-            📥 Export CSV
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span className="material-icon" style={{ fontSize: '16px' }}>download</span>
+              Export CSV
+            </span>
           </Button>
           <Button
             variant="secondary"
@@ -256,7 +265,10 @@ export const DataSection: React.FC<DataSectionProps> = ({ form }) => {
             disabled={filteredAndSortedRows.length === 0}
             id="data-export-json-btn"
           >
-            📋 Export JSON
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span className="material-icon" style={{ fontSize: '16px' }}>data_object</span>
+              Export JSON
+            </span>
           </Button>
         </div>
       </div>
@@ -343,7 +355,17 @@ export const DataSection: React.FC<DataSectionProps> = ({ form }) => {
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span>Submitted At</span>
-                  <span>{sortField === 'submittedAt' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}</span>
+                  <span>
+                    {sortField === 'submittedAt' ? (
+                      <span className="material-icon" style={{ fontSize: '14px' }}>
+                        {sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+                      </span>
+                    ) : (
+                      <span className="material-icon" style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>
+                        unfold_more
+                      </span>
+                    )}
+                  </span>
                 </div>
               </th>
 
@@ -355,7 +377,17 @@ export const DataSection: React.FC<DataSectionProps> = ({ form }) => {
               >
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                   <span>Ver</span>
-                  <span>{sortField === 'versionNumber' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}</span>
+                  <span>
+                    {sortField === 'versionNumber' ? (
+                      <span className="material-icon" style={{ fontSize: '14px' }}>
+                        {sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+                      </span>
+                    ) : (
+                      <span className="material-icon" style={{ fontSize: '14px', color: 'var(--color-text-muted)' }}>
+                        unfold_more
+                      </span>
+                    )}
+                  </span>
                 </div>
               </th>
 
@@ -369,8 +401,12 @@ export const DataSection: React.FC<DataSectionProps> = ({ form }) => {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ fontWeight: 'var(--font-weight-semibold)' }}>{col.label}</span>
-                    <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>
-                      {sortField === col.id ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
+                    <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                      {sortField === col.id ? (
+                        <span className="material-icon" style={{ fontSize: '14px' }}>
+                          {sortDirection === 'asc' ? 'arrow_upward' : 'arrow_downward'}
+                        </span>
+                      ) : null}
                     </span>
                   </div>
                 </th>
@@ -477,7 +513,10 @@ export const DataSection: React.FC<DataSectionProps> = ({ form }) => {
             disabled={currentPage <= 1}
             id="pagination-prev-btn"
           >
-            ← Previous
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <span className="material-icon" style={{ fontSize: '14px' }}>arrow_back</span>
+              Previous
+            </span>
           </Button>
 
           <span className="form-detail-data__page-indicator">
@@ -491,7 +530,10 @@ export const DataSection: React.FC<DataSectionProps> = ({ form }) => {
             disabled={currentPage >= totalPages}
             id="pagination-next-btn"
           >
-            Next →
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              Next
+              <span className="material-icon" style={{ fontSize: '14px' }}>arrow_forward</span>
+            </span>
           </Button>
         </div>
       </div>
@@ -508,7 +550,17 @@ export const DataSection: React.FC<DataSectionProps> = ({ form }) => {
               onClick={() => selectedRecord && copyRecordJson(selectedRecord.data)}
               id="copy-record-json-btn"
             >
-              {copiedJson ? '✓ JSON Copied' : 'Copy Record JSON'}
+              {copiedJson ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <span className="material-icon" style={{ fontSize: '14px' }}>check</span>
+                  JSON Copied
+                </span>
+              ) : (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <span className="material-icon" style={{ fontSize: '14px' }}>content_copy</span>
+                  Copy Record JSON
+                </span>
+              )}
             </Button>
             <Button variant="primary" onClick={() => setIsDetailOpen(false)}>
               Done

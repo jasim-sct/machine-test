@@ -271,8 +271,10 @@ export const PublicFormPage: React.FC = () => {
                   padding: 'var(--space-8) var(--space-4)',
                 }}
               >
-                <div style={{ fontSize: 'var(--font-size-4xl)', marginBottom: 'var(--space-3)' }}>
-                  🎉
+                <div style={{ marginBottom: 'var(--space-3)' }}>
+                  <span className="material-icon" style={{ fontSize: '56px', color: 'var(--color-success)' }}>
+                    check_circle
+                  </span>
                 </div>
                 <h2
                   style={{

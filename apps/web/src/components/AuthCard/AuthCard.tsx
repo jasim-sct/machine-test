@@ -21,7 +21,7 @@ export const AuthCard: React.FC<AuthCardProps> = ({
   return (
     <div className={`auth-card ${className}`.trim()}>
       <div className="auth-card__brand">
-        <span className="auth-card__brand-icon">⚡</span>
+        <span className="material-icon auth-card__brand-icon">bolt</span>
         <span>{brandName}</span>
       </div>
 

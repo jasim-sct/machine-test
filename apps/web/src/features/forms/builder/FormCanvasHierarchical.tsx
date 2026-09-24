@@ -396,7 +396,11 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
               borderRadius: 'var(--radius-lg)',
             }}
           >
-            <div style={{ fontSize: 'var(--font-size-3xl)', marginBottom: 'var(--space-2)' }}>📂</div>
+            <div style={{ marginBottom: 'var(--space-2)' }}>
+              <span className="material-icon" style={{ fontSize: '48px', color: 'var(--color-text-muted)' }}>
+                folder_open
+              </span>
+            </div>
             <h3 style={{ fontSize: 'var(--font-size-base)', margin: '0 0 var(--space-1) 0' }}>
               No Sections in Form
             </h3>
@@ -404,7 +408,10 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
               Forms are organized into Sections, which contain Zones for your fields.
             </p>
             <Button variant="primary" size="small" onClick={onAddSection}>
-              + Add First Section
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span className="material-icon" style={{ fontSize: '16px' }}>add</span>
+                Add First Section
+              </span>
             </Button>
           </div>
         ) : (

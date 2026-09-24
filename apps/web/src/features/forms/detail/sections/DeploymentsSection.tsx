@@ -75,7 +75,10 @@ export const DeploymentsSection: React.FC<DeploymentsSectionProps> = ({
             onClick={() => window.open(`/f/${form.publicId}`, '_blank')}
             id="deployments-open-live-btn"
           >
-            Open Live Form ↗
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              Open Live Form
+              <span className="material-icon" style={{ fontSize: '14px' }}>open_in_new</span>
+            </span>
           </Button>
         )}
       </div>
@@ -89,7 +92,9 @@ export const DeploymentsSection: React.FC<DeploymentsSectionProps> = ({
       {/* 2. Deployments List */}
       {deployments.length === 0 ? (
         <div className="form-detail-deployments__empty">
-          <span style={{ fontSize: '2.5rem' }}>🚀</span>
+          <span className="material-icon" style={{ fontSize: '48px', color: 'var(--color-text-muted)' }}>
+            rocket_launch
+          </span>
           <h4>No Deployments Yet</h4>
           <p>
             This form has not been deployed to production. Visit the Versions section or Editor to deploy your first version.
@@ -142,7 +147,10 @@ export const DeploymentsSection: React.FC<DeploymentsSectionProps> = ({
                       size="small"
                       onClick={() => window.open(`/f/${form.publicId}`, '_blank')}
                     >
-                      Test Live Form ↗
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        Test Live Form
+                        <span className="material-icon" style={{ fontSize: '14px' }}>open_in_new</span>
+                      </span>
                     </Button>
                   ) : (
                     <Button
@@ -151,7 +159,10 @@ export const DeploymentsSection: React.FC<DeploymentsSectionProps> = ({
                       onClick={() => setRollbackDeployment(d)}
                       id={`rollback-btn-v${d.versionNumber}`}
                     >
-                      ↩ Rollback to v{d.versionNumber}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <span className="material-icon" style={{ fontSize: '14px' }}>history</span>
+                        Rollback to v{d.versionNumber}
+                      </span>
                     </Button>
                   )}
                 </div>

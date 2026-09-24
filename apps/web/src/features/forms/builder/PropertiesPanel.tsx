@@ -136,7 +136,12 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   gap: 'var(--space-1)',
                 }}
               >
-                <span>☰ Column</span>
+                <span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="material-icon" style={{ fontSize: '16px' }}>view_stream</span>
+                    Column
+                  </span>
+                </span>
                 <span style={{ fontSize: '11px', opacity: 0.8 }}>Stacked Vertically</span>
               </button>
 
@@ -158,7 +163,12 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   gap: 'var(--space-1)',
                 }}
               >
-                <span>⫼ Row</span>
+                <span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="material-icon" style={{ fontSize: '16px' }}>view_column</span>
+                    Row
+                  </span>
+                </span>
                 <span style={{ fontSize: '11px', opacity: 0.8 }}>Side by Side</span>
               </button>
             </div>
@@ -172,7 +182,10 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               <Badge variant="neutral" size="small">{sections.length}</Badge>
             </div>
             <Button variant="secondary" size="small" style={{ width: '100%' }} onClick={onAddSection}>
-              + Add New Section
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span className="material-icon" style={{ fontSize: '16px' }}>add</span>
+                Add New Section
+              </span>
             </Button>
           </div>
         </div>
@@ -284,7 +297,12 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   gap: 'var(--space-1)',
                 }}
               >
-                <span>☰ Column</span>
+                <span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="material-icon" style={{ fontSize: '16px' }}>view_stream</span>
+                    Column
+                  </span>
+                </span>
                 <span style={{ fontSize: '11px', opacity: 0.8 }}>Stacked Vertically</span>
               </button>
             </div>
@@ -298,7 +316,10 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               onClick={() => onAddZone(section.id)}
               style={{ width: '100%' }}
             >
-              + Add Zone to Section
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span className="material-icon" style={{ fontSize: '16px' }}>add</span>
+                Add Zone to Section
+              </span>
             </Button>
 
             <Button
@@ -447,7 +468,10 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   cursor: 'pointer',
                 }}
               >
-                🖥 Desktop
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <span className="material-icon" style={{ fontSize: '14px' }}>desktop_windows</span>
+                  Desktop
+                </span>
               </button>
               <button
                 type="button"
@@ -464,7 +488,10 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   cursor: 'pointer',
                 }}
               >
-                📱 Tablet
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <span className="material-icon" style={{ fontSize: '14px' }}>tablet_mac</span>
+                  Tablet
+                </span>
               </button>
               <button
                 type="button"
@@ -481,7 +508,10 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                   cursor: 'pointer',
                 }}
               >
-                📲 Mobile
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <span className="material-icon" style={{ fontSize: '14px' }}>phone_iphone</span>
+                  Mobile
+                </span>
               </button>
             </div>
 

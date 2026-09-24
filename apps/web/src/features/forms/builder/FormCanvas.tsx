@@ -137,8 +137,10 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
           }}
           id="canvas-empty-state"
         >
-          <div style={{ fontSize: 'var(--font-size-3xl)', marginBottom: 'var(--space-3)' }}>
-            📋
+          <div style={{ marginBottom: 'var(--space-3)' }}>
+            <span className="material-icon" style={{ fontSize: '48px', color: 'var(--color-text-muted)' }}>
+              description
+            </span>
           </div>
           <h3
             style={{
@@ -270,7 +272,7 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                       }}
                       title="Move up"
                     >
-                      ↑
+                      <span className="material-icon" style={{ fontSize: '16px' }}>arrow_upward</span>
                     </button>
 
                     {/* Move Down Button */}
@@ -288,10 +290,12 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                         cursor: index === elements.length - 1 ? 'default' : 'pointer',
                         padding: '2px 4px',
                         fontSize: '12px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
                       }}
                       title="Move down"
                     >
-                      ↓
+                      <span className="material-icon" style={{ fontSize: '16px' }}>arrow_downward</span>
                     </button>
 
                     {/* Configure Settings Toggle */}
@@ -318,10 +322,12 @@ export const FormCanvas: React.FC<FormCanvasProps> = ({
                         padding: '2px 6px',
                         fontSize: '14px',
                         lineHeight: 1,
+                        display: 'inline-flex',
+                        alignItems: 'center',
                       }}
                       title="Remove field"
                     >
-                      ✕
+                      <span className="material-icon" style={{ fontSize: '16px' }}>close</span>
                     </button>
                   </div>
                 </div>

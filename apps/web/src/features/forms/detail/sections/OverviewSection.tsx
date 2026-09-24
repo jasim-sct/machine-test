@@ -107,7 +107,17 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
                     onClick={copyPublicUrl}
                     id="copy-deployed-link-btn"
                   >
-                    {copiedLink ? '✓ Copied' : 'Copy Link'}
+                    {copiedLink ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <span className="material-icon" style={{ fontSize: '14px' }}>check</span>
+                        Copied
+                      </span>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <span className="material-icon" style={{ fontSize: '14px' }}>content_copy</span>
+                        Copy Link
+                      </span>
+                    )}
                   </button>
                 </div>
               </>
@@ -132,7 +142,10 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
               onClick={() => window.open(`/f/${form.publicId}`, '_blank')}
               id="overview-open-deployed-btn"
             >
-              Open Deployed Form ↗
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                Open Deployed Form
+                <span className="material-icon" style={{ fontSize: '14px' }}>open_in_new</span>
+              </span>
             </Button>
           )}
 
@@ -147,7 +160,10 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
             }
             id="overview-edit-draft-btn"
           >
-            ✏️ Edit Latest Draft {latestDraft ? `(v${latestDraft.versionNumber})` : ''}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span className="material-icon" style={{ fontSize: '16px' }}>edit</span>
+              Edit Latest Draft {latestDraft ? `(v${latestDraft.versionNumber})` : ''}
+            </span>
           </Button>
 
           <Button
@@ -162,7 +178,10 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
             }
             id="overview-preview-btn"
           >
-            👁️ Preview Form
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span className="material-icon" style={{ fontSize: '16px' }}>visibility</span>
+              Preview Form
+            </span>
           </Button>
         </div>
       </div>
@@ -171,7 +190,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
       <div className="form-detail-overview__metrics-grid">
         <div className="form-detail-overview__metric-card" id="metric-submissions">
           <div className="form-detail-overview__metric-icon" style={{ color: '#0284c7', backgroundColor: '#e0f2fe' }}>
-            📊
+            <span className="material-icon" style={{ fontSize: '24px' }}>bar_chart</span>
           </div>
           <div className="form-detail-overview__metric-body">
             <span className="form-detail-overview__metric-label">Total Submissions</span>
@@ -183,14 +202,17 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
               className="form-detail-overview__metric-link"
               onClick={() => onNavigateTab('data')}
             >
-              View records in table →
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                View records in table
+                <span className="material-icon" style={{ fontSize: '14px' }}>arrow_forward</span>
+              </span>
             </button>
           </div>
         </div>
 
         <div className="form-detail-overview__metric-card" id="metric-fields">
           <div className="form-detail-overview__metric-icon" style={{ color: '#4f46e5', backgroundColor: '#eef2ff' }}>
-            📋
+            <span className="material-icon" style={{ fontSize: '24px' }}>list_alt</span>
           </div>
           <div className="form-detail-overview__metric-body">
             <span className="form-detail-overview__metric-label">Form Fields</span>
@@ -202,14 +224,17 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
               className="form-detail-overview__metric-link"
               onClick={() => onNavigateTab('fields')}
             >
-              Inspect structural fields →
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                Inspect structural fields
+                <span className="material-icon" style={{ fontSize: '14px' }}>arrow_forward</span>
+              </span>
             </button>
           </div>
         </div>
 
         <div className="form-detail-overview__metric-card" id="metric-versions">
           <div className="form-detail-overview__metric-icon" style={{ color: '#059669', backgroundColor: '#ecfdf5' }}>
-            🏷️
+            <span className="material-icon" style={{ fontSize: '24px' }}>history</span>
           </div>
           <div className="form-detail-overview__metric-body">
             <span className="form-detail-overview__metric-label">Total Versions</span>
@@ -221,14 +246,17 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
               className="form-detail-overview__metric-link"
               onClick={() => onNavigateTab('versions')}
             >
-              Manage drafts & versions →
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                Manage drafts & versions
+                <span className="material-icon" style={{ fontSize: '14px' }}>arrow_forward</span>
+              </span>
             </button>
           </div>
         </div>
 
         <div className="form-detail-overview__metric-card" id="metric-last-updated">
           <div className="form-detail-overview__metric-icon" style={{ color: '#d97706', backgroundColor: '#fef3c7' }}>
-            🕒
+            <span className="material-icon" style={{ fontSize: '24px' }}>schedule</span>
           </div>
           <div className="form-detail-overview__metric-body">
             <span className="form-detail-overview__metric-label">Last Updated</span>
@@ -335,7 +363,10 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
                   onClick={() => onNavigateTab('versions')}
                   id="overview-compare-versions-btn"
                 >
-                  Compare Versions →
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    Compare Versions
+                    <span className="material-icon" style={{ fontSize: '14px' }}>arrow_forward</span>
+                  </span>
                 </Button>
               </div>
             )}
@@ -357,7 +388,10 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
               onClick={() => onNavigateTab('activity')}
               id="overview-view-all-activity-btn"
             >
-              Full Log →
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                Full Log
+                <span className="material-icon" style={{ fontSize: '14px' }}>arrow_forward</span>
+              </span>
             </Button>
           </div>
 

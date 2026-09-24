@@ -29,7 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           to={isAdmin ? '/admin/dashboard' : '/dashboard'}
           className="sidebar__brand-link"
         >
-          <span className="sidebar__brand-icon">⚡</span>
+          <span className="material-icon sidebar__brand-icon">bolt</span>
           <span>{brandName}</span>
         </NavLink>
         <Badge variant={isAdmin ? 'info' : 'neutral'} size="small">
@@ -46,19 +46,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <>
                 <SidebarItem
                   to="/admin/dashboard"
-                  icon="📊"
+                  icon="dashboard"
                   label="Dashboard"
                   id="nav-admin-dashboard"
                 />
                 <SidebarItem
                   to="/admin/users"
-                  icon="👥"
+                  icon="group"
                   label="Users"
                   id="nav-admin-users"
                 />
                 <SidebarItem
                   to="/profile"
-                  icon="👤"
+                  icon="person"
                   label="Profile"
                   id="nav-admin-profile"
                 />
@@ -67,19 +67,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <>
                 <SidebarItem
                   to="/dashboard"
-                  icon="📊"
+                  icon="dashboard"
                   label="Dashboard"
                   id="nav-user-dashboard"
                 />
                 <SidebarItem
                   to="/forms"
-                  icon="📝"
+                  icon="description"
                   label="Forms"
                   id="nav-user-forms"
                 />
                 <SidebarItem
                   to="/profile"
-                  icon="👤"
+                  icon="person"
                   label="Profile"
                   id="nav-user-profile"
                 />
@@ -96,7 +96,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             id="sidebar-logout-btn"
             style={{ justifyContent: 'flex-start' }}
           >
-            <span>🚪</span>
+            <span className="material-icon" style={{ marginRight: '8px' }}>logout</span>
             <span>Logout</span>
           </Button>
         </div>

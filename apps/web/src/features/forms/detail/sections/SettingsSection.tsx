@@ -339,7 +339,10 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
             isLoading={isSaving}
             id="save-settings-btn"
           >
-            💾 Save Settings
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <span className="material-icon" style={{ fontSize: '16px' }}>save</span>
+              Save Settings
+            </span>
           </Button>
         </div>
       </form>

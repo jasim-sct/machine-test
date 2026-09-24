@@ -176,7 +176,7 @@ export const FieldsSection: React.FC<FieldsSectionProps> = ({ form }) => {
               const isDep = v.id === deployedVersionId || v.isDeployed;
               return (
                 <option key={v.id} value={v.id}>
-                  Version {v.versionNumber} {isDep ? '★ (DEPLOYED)' : '(Draft)'} — {v.title}
+                  Version {v.versionNumber} {isDep ? '(DEPLOYED)' : '(Draft)'} — {v.title}
                 </option>
               );
             })}

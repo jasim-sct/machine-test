@@ -27,7 +27,11 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({
           `sidebar-item ${isActive ? 'sidebar-item--active active' : ''}`
         }
       >
-        {icon && <span className="sidebar-item__icon">{icon}</span>}
+        {icon && (
+          <span className="sidebar-item__icon">
+            {typeof icon === 'string' ? <span className="material-icon">{icon}</span> : icon}
+          </span>
+        )}
         <span className="sidebar-item__label">{label}</span>
       </NavLink>
     </li>

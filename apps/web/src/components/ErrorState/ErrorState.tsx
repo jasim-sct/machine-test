@@ -19,7 +19,9 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
 }) => {
   return (
     <div className={`error-state ${className}`.trim()}>
-      <div className="error-state__icon">⚠️</div>
+      <div className="error-state__icon">
+        <span className="material-icon" style={{ fontSize: '32px' }}>error_outline</span>
+      </div>
       <h3 className="error-state__title">{title}</h3>
       {message && <p className="error-state__message">{message}</p>}
       {onRetry && (

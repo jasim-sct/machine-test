@@ -73,7 +73,7 @@ export const AdminDashboardPage: React.FC = () => {
             <StatCard
               title="Total Users"
               value={stats?.totalUsers ?? 0}
-              icon="👥"
+              icon="group"
               description="All registered platform accounts"
             />
           </div>
@@ -82,7 +82,7 @@ export const AdminDashboardPage: React.FC = () => {
             <StatCard
               title="Active Users"
               value={stats?.activeUsers ?? 0}
-              icon="✅"
+              icon="check_circle"
               description="Users with active session access"
             />
           </div>
@@ -91,7 +91,7 @@ export const AdminDashboardPage: React.FC = () => {
             <StatCard
               title="Suspended Users"
               value={stats?.suspendedUsers ?? 0}
-              icon="🚫"
+              icon="block"
               description="Accounts restricted from logging in"
             />
           </div>

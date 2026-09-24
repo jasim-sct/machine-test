@@ -30,19 +30,19 @@ export const ActivitySection: React.FC<ActivitySectionProps> = ({ form }) => {
   const getActivityIcon = (type: string) => {
     switch (type) {
       case 'form_created':
-        return '✨';
+        return <span className="material-icon" style={{ fontSize: '18px' }}>add_circle</span>;
       case 'version_created':
-        return '📝';
+        return <span className="material-icon" style={{ fontSize: '18px' }}>history</span>;
       case 'version_deployed':
-        return '🚀';
+        return <span className="material-icon" style={{ fontSize: '18px' }}>rocket_launch</span>;
       case 'submission_received':
-        return '📥';
+        return <span className="material-icon" style={{ fontSize: '18px' }}>inbox</span>;
       case 'settings_updated':
-        return '⚙️';
+        return <span className="material-icon" style={{ fontSize: '18px' }}>settings</span>;
       case 'field_updated':
-        return '✏️';
+        return <span className="material-icon" style={{ fontSize: '18px' }}>edit</span>;
       default:
-        return '📌';
+        return <span className="material-icon" style={{ fontSize: '18px' }}>push_pin</span>;
     }
   };
 
@@ -128,7 +128,9 @@ export const ActivitySection: React.FC<ActivitySectionProps> = ({ form }) => {
       {/* 2. Timeline View */}
       {filteredActivities.length === 0 ? (
         <div className="form-detail-activity__empty">
-          <span>📅</span>
+          <span className="material-icon" style={{ fontSize: '36px', color: 'var(--color-text-muted)' }}>
+            event_busy
+          </span>
           <h4>No activities found</h4>
           <p>No logged events match the selected category filter.</p>
         </div>

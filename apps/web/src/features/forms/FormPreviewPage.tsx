@@ -228,7 +228,10 @@ export const FormPreviewPage: React.FC = () => {
             cursor: 'pointer',
           }}
         >
-          ← Return to Form Builder
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <span className="material-icon" style={{ fontSize: '18px' }}>arrow_back</span>
+            Return to Form Builder
+          </span>
         </button>
       </div>
     );
