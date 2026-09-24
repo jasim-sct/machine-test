@@ -4,7 +4,6 @@ import {
   FormDto,
   FormVersionDto,
   isDataField,
-  formatSubmissionData,
   extractAllElements,
 } from '@saas/shared';
 import { formsService } from '../../services/forms.service';
@@ -67,7 +66,18 @@ export const FormPreviewPage: React.FC = () => {
     : [];
 
   const dataFields = allElements.filter((el) => isDataField(el.type));
-  const currentFormattedData = formatSubmissionData(dataFields, testValues);
+
+  const getUserFriendlyData = () => {
+    const result: Record<string, any> = {};
+    for (const field of dataFields) {
+      const key = field.reference || field.id;
+      const rawVal = testValues[key] !== undefined ? testValues[key] : testValues[field.id];
+      if (rawVal !== undefined && rawVal !== null && rawVal !== '') {
+        result[field.label || field.name || 'Field'] = rawVal;
+      }
+    }
+    return result;
+  };
 
   const handleReset = () => {
     setTestValues({});
@@ -109,6 +119,32 @@ export const FormPreviewPage: React.FC = () => {
         }
       }
 
+      // Length and numerical bounds checks
+      if (val !== undefined && val !== null && val !== '') {
+        const strVal = String(val);
+        if (field.validation?.minLength !== undefined && strVal.length < field.validation.minLength) {
+          newErrors[key] = `Must be at least ${field.validation.minLength} characters`;
+          continue;
+        }
+        if (field.validation?.maxLength !== undefined && strVal.length > field.validation.maxLength) {
+          newErrors[key] = `Cannot exceed ${field.validation.maxLength} characters`;
+          continue;
+        }
+        if (field.type === 'number') {
+          const numVal = Number(val);
+          if (!isNaN(numVal)) {
+            if (field.validation?.min !== undefined && numVal < field.validation.min) {
+              newErrors[key] = `Minimum value is ${field.validation.min}`;
+              continue;
+            }
+            if (field.validation?.max !== undefined && numVal > field.validation.max) {
+              newErrors[key] = `Maximum value is ${field.validation.max}`;
+              continue;
+            }
+          }
+        }
+      }
+
       // Regex validation
       if (
         field.validation?.enabled &&
@@ -142,7 +178,7 @@ export const FormPreviewPage: React.FC = () => {
   };
 
   const copyJsonPayload = () => {
-    const payload = submittedData || currentFormattedData;
+    const payload = submittedData || getUserFriendlyData();
     navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
     setCopiedJson(true);
     setTimeout(() => setCopiedJson(false), 2000);
@@ -300,7 +336,7 @@ export const FormPreviewPage: React.FC = () => {
         {submitted && (
           <div style={{ maxWidth: '640px', width: '100%', marginBottom: '16px' }}>
             <Alert variant="success" title="Simulated Submission Succeeded!">
-              Form validation passed. You can inspect the payload mapped by field reference in the
+              Form validation passed. You can inspect the submitted values in the
               inspector below.
             </Alert>
           </div>
@@ -344,7 +380,7 @@ export const FormPreviewPage: React.FC = () => {
             <div className="form-preview-page__data-drawer__title">
               <span className="material-icon">schema</span>
               <span>
-                {submitted ? 'Submitted Payload (Validated)' : 'Live Data Stream (Mapped by Reference)'}
+                {submitted ? 'Submitted Data' : 'Live Form Data'}
               </span>
             </div>
             <div
@@ -372,7 +408,7 @@ export const FormPreviewPage: React.FC = () => {
           </div>
           <div className="form-preview-page__data-drawer__content">
             <pre>
-              {JSON.stringify(submittedData || currentFormattedData, null, 2)}
+              {JSON.stringify(submittedData || getUserFriendlyData(), null, 2)}
             </pre>
           </div>
         </div>

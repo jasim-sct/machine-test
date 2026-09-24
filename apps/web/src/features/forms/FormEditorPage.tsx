@@ -80,13 +80,43 @@ export const FormEditorPage: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Ensure internal platform reference keys are always unique across elements in background
+  const deduplicateReferences = (secs: FormSection[]): FormSection[] => {
+    const seen = new Set<string>();
+    let modified = false;
+    const result = secs.map((sec) => ({
+      ...sec,
+      zones: sec.zones.map((zone) => ({
+        ...zone,
+        elements: zone.elements.map((el) => {
+          if (!isDataField(el.type)) return el;
+          const baseRef = (el.reference || generateReference(el.label || el.name || 'field')).trim() || 'field';
+          let uniqueRef = baseRef;
+          let counter = 1;
+          while (seen.has(uniqueRef)) {
+            counter++;
+            uniqueRef = `${baseRef}_${counter}`;
+          }
+          seen.add(uniqueRef);
+          if (uniqueRef !== el.reference) {
+            modified = true;
+            return { ...el, reference: uniqueRef };
+          }
+          return el;
+        }),
+      })),
+    }));
+    return modified ? result : secs;
+  };
+
   // Sync state and push to history
   const updateSectionsAndHistory = useCallback(
     (newSections: FormSection[]) => {
-      setSections(newSections);
+      const sanitized = deduplicateReferences(newSections);
+      setSections(sanitized);
       pushState({
         formLayout,
-        sections: newSections,
+        sections: sanitized,
         title: titleInput,
       });
     },
@@ -594,11 +624,7 @@ export const FormEditorPage: React.FC = () => {
     if (!id || !selectedVersionId) return;
 
     if (duplicateReferences.length > 0) {
-      setError(
-        `Cannot deploy: duplicate field references detected (${duplicateReferences.join(
-          ', ',
-        )}). Every field reference must be unique.`,
-      );
+      setError('Cannot deploy: please ensure all form fields have distinct names.');
       return;
     }
 
@@ -860,7 +886,7 @@ export const FormEditorPage: React.FC = () => {
             id="btn-deploy-version"
             title={
               duplicateReferences.length > 0
-                ? 'Fix duplicate references before deploying'
+                ? 'Resolve field naming conflicts before deploying'
                 : 'Publish and deploy live'
             }
           >

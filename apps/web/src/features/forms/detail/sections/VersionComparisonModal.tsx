@@ -313,7 +313,7 @@ export const VersionComparisonModal: React.FC<VersionComparisonModalProps> = ({
           <div className="version-comparison__empty-identical">
             <span style={{ fontSize: '2rem' }}>🎉</span>
             <h4>Versions are structurally identical</h4>
-            <p>All field names, references, requirements, and validation rules match exactly.</p>
+            <p>All field names, requirements, and validation rules match exactly.</p>
           </div>
         ) : (
           <div className="version-comparison__diff-list">
@@ -328,7 +328,6 @@ export const VersionComparisonModal: React.FC<VersionComparisonModalProps> = ({
                 <div className="diff-card__content">
                   <div className="diff-card__field-name">
                     <strong>{item.labelA}</strong>
-                    <code>{item.reference}</code>
                   </div>
                   <div className="diff-card__details">
                     Type: <Badge variant="neutral" size="small">{item.typeA}</Badge>
@@ -349,7 +348,6 @@ export const VersionComparisonModal: React.FC<VersionComparisonModalProps> = ({
                 <div className="diff-card__content">
                   <div className="diff-card__field-name">
                     <strong>{item.labelB}</strong>
-                    <code>{item.reference}</code>
                   </div>
                   <div className="diff-card__details">
                     Was in Base (v{versionB?.versionNumber}), missing in v{versionA?.versionNumber}
@@ -369,7 +367,6 @@ export const VersionComparisonModal: React.FC<VersionComparisonModalProps> = ({
                 <div className="diff-card__content">
                   <div className="diff-card__field-name">
                     <strong>{item.labelA}</strong>
-                    <code>{item.reference}</code>
                   </div>
                   <ul className="diff-card__changes-list">
                     {item.changes.map((c, i) => (
@@ -392,7 +389,6 @@ export const VersionComparisonModal: React.FC<VersionComparisonModalProps> = ({
                   <div className="diff-card__content">
                     <div className="diff-card__field-name">
                       <span>{item.labelA}</span>
-                      <code>{item.reference}</code>
                     </div>
                     <div className="diff-card__details">
                       Type: {item.typeA} · {item.requiredA ? 'Required' : 'Optional'}

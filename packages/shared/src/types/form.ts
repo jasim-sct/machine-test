@@ -45,6 +45,10 @@ export interface FieldValidation {
   pattern?: string;
   errorMessage?: string;
   successMessage?: string;
+  minLength?: number;
+  maxLength?: number;
+  min?: number;
+  max?: number;
 }
 
 export interface FormElement {
@@ -59,6 +63,7 @@ export interface FormElement {
   helperText?: string;
   required?: boolean;
   defaultValue?: any;
+  multiple?: boolean;
   options?: string[]; // for select, radio
   buttonAction?: 'submit' | 'reset' | 'button'; // for button
   buttonText?: string;

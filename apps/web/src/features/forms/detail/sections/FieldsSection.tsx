@@ -117,10 +117,9 @@ export const FieldsSection: React.FC<FieldsSectionProps> = ({ form }) => {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchesLabel = item.label.toLowerCase().includes(q);
-        const matchesRef = item.reference.toLowerCase().includes(q);
         const matchesType = item.type.toLowerCase().includes(q);
         const matchesSec = item.sectionName.toLowerCase().includes(q);
-        return matchesLabel || matchesRef || matchesType || matchesSec;
+        return matchesLabel || matchesType || matchesSec;
       }
 
       return true;
@@ -210,7 +209,7 @@ export const FieldsSection: React.FC<FieldsSectionProps> = ({ form }) => {
         <div style={{ flex: '1', minWidth: '240px' }}>
           <Input
             id="search-fields-input"
-            placeholder="Search fields by name, reference key, type, or section..."
+            placeholder="Search fields by name, type, or section..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -247,8 +246,7 @@ export const FieldsSection: React.FC<FieldsSectionProps> = ({ form }) => {
           <thead>
             <tr>
               <th style={{ width: '50px', textAlign: 'center' }}>#</th>
-              <th style={{ width: '220px' }}>Field Name / Label</th>
-              <th style={{ width: '180px' }}>Reference Key</th>
+              <th style={{ width: '240px' }}>Field Label</th>
               <th style={{ width: '120px' }}>Type</th>
               <th style={{ width: '110px' }}>Requirement</th>
               <th style={{ width: '180px' }}>Section / Group</th>
@@ -258,7 +256,7 @@ export const FieldsSection: React.FC<FieldsSectionProps> = ({ form }) => {
           <tbody>
             {filteredFields.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>
+                <td colSpan={6} style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>
                   No fields match the current query or filter criteria.
                 </td>
               </tr>
@@ -272,22 +270,6 @@ export const FieldsSection: React.FC<FieldsSectionProps> = ({ form }) => {
                     <div style={{ fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-text-primary)' }}>
                       {field.label}
                     </div>
-                    {field.name !== field.label && (
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                        {field.name}
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    {field.isInteractive ? (
-                      <code className="form-detail-fields__reference-code">
-                        {field.reference}
-                      </code>
-                    ) : (
-                      <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
-                        (structural)
-                      </span>
-                    )}
                   </td>
                   <td>
                     <Badge variant={getTypeColor(field.type) as any} size="small">

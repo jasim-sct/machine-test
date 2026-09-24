@@ -365,16 +365,13 @@ export const DataSection: React.FC<DataSectionProps> = ({ form }) => {
                   key={col.id}
                   onClick={() => handleSort(col.id)}
                   style={{ cursor: 'pointer', minWidth: '150px' }}
-                  title={`Sort by ${col.label || col.id}`}
+                  title={`Sort by ${col.label}`}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ fontWeight: 'var(--font-weight-semibold)' }}>{col.label}</span>
                     <span style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>
                       {sortField === col.id ? (sortDirection === 'asc' ? '↑' : '↓') : ''}
                     </span>
-                  </div>
-                  <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontFamily: 'monospace' }}>
-                    {col.reference || col.id}
                   </div>
                 </th>
               ))}
@@ -551,7 +548,6 @@ export const DataSection: React.FC<DataSectionProps> = ({ form }) => {
                   <div key={col.id} className="form-detail-data__modal-field-row">
                     <div className="form-detail-data__modal-field-label">
                       <span>{col.label}</span>
-                      <span className="sub">{col.reference || col.id}</span>
                     </div>
                     <div className="form-detail-data__modal-field-value">
                       {isPopulated ? (

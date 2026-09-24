@@ -40,7 +40,7 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
   onAddElementType,
   onAddSection,
   onAddZone: _onAddZone,
-  duplicateReferences,
+  duplicateReferences: _duplicateReferences,
   previewDevice,
   customCss = '',
   formId,
@@ -639,9 +639,7 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                                     {zone.elements.map((element, elIdx) => {
                                       const isElementSelected =
                                         selection?.type === 'element' && selection.elementId === element.id;
-                                      const isDuplicate = Boolean(
-                                        element.reference && duplicateReferences.includes(element.reference),
-                                      );
+                                      const isDuplicate = false;
                                       const isDraggingThisElement = draggingElementId === element.id;
                                       const isElementDropTargetBefore =
                                         elementDropTarget?.zoneId === zone.id && elementDropTarget.index === elIdx;

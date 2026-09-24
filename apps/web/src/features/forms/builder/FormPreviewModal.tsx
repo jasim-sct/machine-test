@@ -4,7 +4,6 @@ import {
   FormSection,
   LayoutDirection,
   isDataField,
-  formatSubmissionData,
   extractAllElements,
 } from '@saas/shared';
 import { Dialog, Button, Alert, Badge } from '../../../components';
@@ -84,6 +83,32 @@ export const FormPreviewModal: React.FC<FormPreviewModalProps> = ({
         }
       }
 
+      // Length and numerical bounds checks
+      if (val !== undefined && val !== null && val !== '') {
+        const strVal = String(val);
+        if (field.validation?.minLength !== undefined && strVal.length < field.validation.minLength) {
+          newErrors[key] = `Must be at least ${field.validation.minLength} characters`;
+          continue;
+        }
+        if (field.validation?.maxLength !== undefined && strVal.length > field.validation.maxLength) {
+          newErrors[key] = `Cannot exceed ${field.validation.maxLength} characters`;
+          continue;
+        }
+        if (field.type === 'number') {
+          const numVal = Number(val);
+          if (!isNaN(numVal)) {
+            if (field.validation?.min !== undefined && numVal < field.validation.min) {
+              newErrors[key] = `Minimum value is ${field.validation.min}`;
+              continue;
+            }
+            if (field.validation?.max !== undefined && numVal > field.validation.max) {
+              newErrors[key] = `Maximum value is ${field.validation.max}`;
+              continue;
+            }
+          }
+        }
+      }
+
       // Regex validation
       if (field.validation?.enabled && field.validation.pattern && val !== undefined && val !== null && val !== '') {
         try {
@@ -115,11 +140,21 @@ export const FormPreviewModal: React.FC<FormPreviewModalProps> = ({
     mobile: '375px',
   };
 
-  // Live formatted data for inspection
-  const currentFormattedData = formatSubmissionData(dataFields, testValues);
+  // User-friendly live formatted data for inspection (keyed by field label)
+  const getUserFriendlyData = () => {
+    const result: Record<string, any> = {};
+    for (const field of dataFields) {
+      const key = field.reference || field.id;
+      const rawVal = testValues[key] !== undefined ? testValues[key] : testValues[field.id];
+      if (rawVal !== undefined && rawVal !== null && rawVal !== '') {
+        result[field.label || field.name || 'Field'] = rawVal;
+      }
+    }
+    return result;
+  };
 
   const copyDataToClipboard = () => {
-    const payload = submittedData || currentFormattedData;
+    const payload = submittedData || getUserFriendlyData();
     navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
     setCopiedData(true);
     setTimeout(() => setCopiedData(false), 2000);
@@ -284,10 +319,10 @@ export const FormPreviewModal: React.FC<FormPreviewModalProps> = ({
                     color: 'var(--color-text-primary)',
                   }}
                 >
-                  Submitted Data Preview (Mapped by Reference)
+                  Submitted Data Preview
                 </span>
                 <Badge variant={submitted ? 'success' : 'neutral'} size="small">
-                  {submitted ? 'Submitted Payload' : 'Live Data Stream'}
+                  {submitted ? 'Submitted Data' : 'Live Form Data'}
                 </Badge>
               </div>
 
@@ -314,11 +349,7 @@ export const FormPreviewModal: React.FC<FormPreviewModalProps> = ({
                 lineHeight: 1.4,
               }}
             >
-              {JSON.stringify(
-                submittedData || (Object.keys(currentFormattedData).length > 0 ? currentFormattedData : {}),
-                null,
-                2,
-              )}
+              {JSON.stringify(submittedData || getUserFriendlyData(), null, 2)}
             </pre>
           </div>
         </div>

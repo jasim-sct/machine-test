@@ -293,16 +293,6 @@ export const FormDataPage: React.FC = () => {
                           {col.type}
                         </Badge>
                       </div>
-                      <div
-                        style={{
-                          fontSize: '10px',
-                          color: 'var(--color-text-muted)',
-                          fontFamily: 'monospace',
-                          marginTop: '2px',
-                        }}
-                      >
-                        {col.id}
-                      </div>
                     </th>
                   ))}
                 </tr>

@@ -98,6 +98,32 @@ export const PublicFormPage: React.FC = () => {
         }
       }
 
+      // Length and numerical bounds checks
+      if (val !== undefined && val !== null && val !== '') {
+        const strVal = String(val);
+        if (el.validation?.minLength !== undefined && strVal.length < el.validation.minLength) {
+          errors[key] = `Must be at least ${el.validation.minLength} characters`;
+          continue;
+        }
+        if (el.validation?.maxLength !== undefined && strVal.length > el.validation.maxLength) {
+          errors[key] = `Cannot exceed ${el.validation.maxLength} characters`;
+          continue;
+        }
+        if (el.type === 'number') {
+          const numVal = Number(val);
+          if (!isNaN(numVal)) {
+            if (el.validation?.min !== undefined && numVal < el.validation.min) {
+              errors[key] = `Minimum value is ${el.validation.min}`;
+              continue;
+            }
+            if (el.validation?.max !== undefined && numVal > el.validation.max) {
+              errors[key] = `Maximum value is ${el.validation.max}`;
+              continue;
+            }
+          }
+        }
+      }
+
       // Regex validation check
       if (
         el.validation?.enabled &&

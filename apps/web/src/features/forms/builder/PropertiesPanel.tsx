@@ -8,7 +8,6 @@ import {
   getZoneWidthPercent,
   generateReference,
   isDataField,
-  getDataTypeForElementType,
 } from '@saas/shared';
 import {
   FormField,
@@ -39,7 +38,7 @@ export interface PropertiesPanelProps {
   onDeleteSection: (sectionId: string) => void;
   onDeleteZone: (sectionId: string, zoneId: string) => void;
   onDeleteElement: (sectionId: string, zoneId: string, elementId: string) => void;
-  duplicateReferences: string[];
+  duplicateReferences?: string[];
   previewDevice?: 'desktop' | 'tablet' | 'mobile';
   onPreviewDeviceChange?: (device: 'desktop' | 'tablet' | 'mobile') => void;
   onClose?: () => void;
@@ -66,7 +65,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   onDeleteSection,
   onDeleteZone,
   onDeleteElement,
-  duplicateReferences,
+  duplicateReferences: _duplicateReferences,
   previewDevice = 'desktop',
   onPreviewDeviceChange,
   onClose,
@@ -218,28 +217,29 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           </div>
         </div>
         <div className="properties-drawer__body">
-          <FormField style={{ margin: 0 }}>
-            <FormLabel htmlFor="section-name">Section Name (Internal)</FormLabel>
-            <Input
-              id="section-name"
-              value={section.name || ''}
-              onChange={(e) => handleUpdateSection({ name: e.target.value })}
-              placeholder="e.g. Personal Information"
-            />
-          </FormField>
+          <div className="properties-group">
+            <div className="properties-group__subtitle">
+              <span className="material-icon">badge</span>
+              <span>Identity</span>
+            </div>
+            <FormField style={{ margin: 0 }}>
+              <FormLabel htmlFor="section-title">Section Title</FormLabel>
+              <Input
+                id="section-title"
+                value={section.title || section.name || ''}
+                onChange={(e) => handleUpdateSection({ title: e.target.value, name: e.target.value })}
+                placeholder="e.g. Account & Billing Details"
+              />
+            </FormField>
+          </div>
 
-          <FormField style={{ margin: 0 }}>
-            <FormLabel htmlFor="section-title">Section Header Title (Public)</FormLabel>
-            <Input
-              id="section-title"
-              value={section.title || ''}
-              onChange={(e) => handleUpdateSection({ title: e.target.value })}
-              placeholder="e.g. Account & Billing Details"
-            />
-          </FormField>
-
-          <div>
-            <FormLabel>Zones Arrangement</FormLabel>
+          <div className="properties-group">
+            <div className="properties-group__subtitle">
+              <span className="material-icon">tune</span>
+              <span>Configuration</span>
+            </div>
+            <div>
+              <FormLabel>Zones Arrangement</FormLabel>
             <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', margin: '0 0 var(--space-2) 0' }}>
               Controls how zones inside this section are arranged.
             </p>
@@ -289,8 +289,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               </button>
             </div>
           </div>
+        </div>
 
-          <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-3)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+        <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-3)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             <Button
               variant="secondary"
               size="small"
@@ -386,20 +387,31 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           </div>
         </div>
         <div className="properties-drawer__body">
-          <FormField style={{ margin: 0 }}>
-            <FormLabel htmlFor="zone-name">Zone Label</FormLabel>
-            <Input
-              id="zone-name"
-              value={zone.name || ''}
-              onChange={(e) => handleUpdateZone({ name: e.target.value })}
-              placeholder="e.g. Left Column, Contact Info"
-            />
-          </FormField>
+          <div className="properties-group">
+            <div className="properties-group__subtitle">
+              <span className="material-icon">badge</span>
+              <span>Identity</span>
+            </div>
+            <FormField style={{ margin: 0 }}>
+              <FormLabel htmlFor="zone-name">Zone Label</FormLabel>
+              <Input
+                id="zone-name"
+                value={zone.name || ''}
+                onChange={(e) => handleUpdateZone({ name: e.target.value })}
+                placeholder="e.g. Left Column, Contact Info"
+              />
+            </FormField>
+          </div>
 
-          {/* Responsive Width Controls */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-1)' }}>
-              <FormLabel style={{ marginBottom: 0 }}>Responsive Width</FormLabel>
+          <div className="properties-group">
+            <div className="properties-group__subtitle">
+              <span className="material-icon">tune</span>
+              <span>Configuration</span>
+            </div>
+            {/* Responsive Width Controls */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-1)' }}>
+                <FormLabel style={{ marginBottom: 0 }}>Responsive Width</FormLabel>
               <span style={{ fontSize: '11px', color: 'var(--color-primary)', fontWeight: 'var(--font-weight-semibold)' }}>
                 {getZoneWidthPercent(currentPreset, customVal)}%
               </span>
@@ -565,8 +577,9 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               </button>
             </div>
           </div>
+        </div>
 
-          <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-3)' }}>
+        <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-3)' }}>
             <Button
               variant="danger"
               size="small"
@@ -613,8 +626,6 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     if (!element) return null;
 
     const isData = isDataField(element.type);
-    const storedDataType = element.dataType || getDataTypeForElementType(element.type) || 'text';
-    const isDuplicate = Boolean(element.reference && duplicateReferences.includes(element.reference));
 
     const handleUpdateElement = (updates: Partial<FormElement>) => {
       const copy = [...sections];
@@ -629,33 +640,43 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       onUpdateSections(copy);
     };
 
-    // When field name changes: auto-generate reference UNLESS user edited it manually
-    const handleNameChange = (newName: string) => {
-      const updates: Partial<FormElement> = { name: newName };
-      if (!element.isReferenceManual) {
-        updates.reference = generateReference(newName);
-      }
-      if (!element.label || element.label === element.name) {
-        updates.label = newName;
+    // Human-friendly label change: keep internal platform reference key automatically updated in the background
+    const handleLabelChange = (newLabel: string) => {
+      const updates: Partial<FormElement> = {
+        label: newLabel,
+        name: newLabel,
+      };
+      if (!element.isReferenceManual || !element.reference) {
+        updates.reference = generateReference(newLabel);
       }
       handleUpdateElement(updates);
     };
 
-    // When reference changes manually
-    const handleReferenceChange = (newRef: string) => {
-      const sanitized = generateReference(newRef);
-      handleUpdateElement({
-        reference: sanitized,
-        isReferenceManual: true, // Manual lock
-      });
-    };
+    // Check which sections have meaningful properties for this element
+    const hasConfiguration = [
+      'select',
+      'checkbox',
+      'radio',
+      'text',
+      'textarea',
+      'number',
+      'email',
+      'phone',
+      'date',
+      'file',
+      'button',
+      'title',
+      'alert',
+    ].includes(element.type);
+
+    const hasValidation = isData && element.type !== 'button';
 
     return (
       <aside className="properties-drawer">
         <div className="properties-drawer__header">
           <div className="properties-drawer__header-title">
             <span className="material-icon">tune</span>
-            <span>Element Properties</span>
+            <span>{element.label || element.name || 'Element'}</span>
             <Badge variant="success" size="small">{element.type.toUpperCase()}</Badge>
           </div>
           <div className="properties-drawer__header-actions">
@@ -672,346 +693,635 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           </div>
         </div>
         <div className="properties-drawer__body">
-          {/* Data Field Identity (Name & Reference) */}
-          {isData ? (
-            <>
-              {/* Field Name */}
+          {/* 1. IDENTITY */}
+          <div className="properties-group">
+            <div className="properties-group__subtitle">
+              <span className="material-icon">badge</span>
+              <span>Identity</span>
+            </div>
+
+            {/* Interactive Data Elements */}
+            {isData && (
+              <>
+                <FormField style={{ margin: 0 }}>
+                  <FormLabel htmlFor="field-label">Label</FormLabel>
+                  <Input
+                    id="field-label"
+                    value={element.label ?? element.name ?? ''}
+                    onChange={(e) => handleLabelChange(e.target.value)}
+                    placeholder="Field label shown to user..."
+                  />
+                </FormField>
+
+                <FormField style={{ margin: 0 }}>
+                  <FormLabel htmlFor="field-description">Description</FormLabel>
+                  <Input
+                    id="field-description"
+                    value={element.helperText || ''}
+                    onChange={(e) => handleUpdateElement({ helperText: e.target.value })}
+                    placeholder="Optional guidance or help text..."
+                  />
+                </FormField>
+              </>
+            )}
+
+            {/* Button */}
+            {element.type === 'button' && (
               <FormField style={{ margin: 0 }}>
-                <FormLabel htmlFor="field-name">Field Name</FormLabel>
+                <FormLabel htmlFor="btn-label">Label</FormLabel>
                 <Input
-                  id="field-name"
-                  value={element.name || element.label || ''}
-                  onChange={(e) => handleNameChange(e.target.value)}
-                  placeholder="e.g. Full Name"
+                  id="btn-label"
+                  value={element.buttonText || element.label || ''}
+                  onChange={(e) =>
+                    handleUpdateElement({
+                      buttonText: e.target.value,
+                      label: e.target.value,
+                      name: e.target.value,
+                    })
+                  }
+                  placeholder="e.g. Submit Application"
                 />
               </FormField>
+            )}
 
-              {/* Reference */}
+            {/* Title / Heading */}
+            {element.type === 'title' && (
               <FormField style={{ margin: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-1)' }}>
-                  <FormLabel htmlFor="field-reference" style={{ marginBottom: 0 }}>
-                    Reference (API Key)
-                  </FormLabel>
-                  <span
-                    style={{
-                      fontSize: '10px',
-                      color: element.isReferenceManual ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '3px',
-                    }}
-                  >
-                    {element.isReferenceManual ? '🔒 Manual' : '⚡ Auto-generated'}
-                  </span>
-                </div>
+                <FormLabel htmlFor="heading-text">Heading Text</FormLabel>
                 <Input
-                  id="field-reference"
-                  value={element.reference || ''}
-                  onChange={(e) => handleReferenceChange(e.target.value)}
-                  placeholder="e.g. full_name"
-                  style={{
-                    borderColor: isDuplicate ? 'var(--color-danger)' : undefined,
-                    fontFamily: 'monospace',
-                    fontSize: '12px',
-                  }}
+                  id="heading-text"
+                  value={element.content || element.label || ''}
+                  onChange={(e) =>
+                    handleUpdateElement({
+                      content: e.target.value,
+                      label: e.target.value,
+                      name: e.target.value,
+                    })
+                  }
+                  placeholder="Enter heading..."
                 />
-                {isDuplicate && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 'var(--space-1)',
-                      color: 'var(--color-danger)',
-                      fontSize: 'var(--font-size-xs)',
-                      marginTop: 'var(--space-1)',
-                    }}
-                  >
-                    <span>✕</span>
-                    <span>Duplicate reference! Must be unique across form.</span>
-                  </div>
-                )}
-                {element.isReferenceManual && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const autoRef = generateReference(element.name || element.label || '');
-                      handleUpdateElement({ reference: autoRef, isReferenceManual: false });
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--color-primary)',
-                      fontSize: '11px',
-                      cursor: 'pointer',
-                      padding: 0,
-                      marginTop: 'var(--space-1)',
-                      textAlign: 'left',
-                    }}
-                  >
-                    Reset to auto-generated from name
-                  </button>
-                )}
               </FormField>
+            )}
 
-              {/* Stored Data Type Indicator */}
-              <div
-                style={{
-                  padding: 'var(--space-2) var(--space-3)',
-                  backgroundColor: 'var(--color-bg-secondary)',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--color-border)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>Stored Data Type</div>
-                  <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-text-primary)', textTransform: 'capitalize' }}>
-                    {storedDataType}
-                  </div>
-                </div>
-                <Badge variant="info" size="small">
-                  {storedDataType.toUpperCase()}
-                </Badge>
+            {/* Description Paragraph */}
+            {element.type === 'description' && (
+              <FormField style={{ margin: 0 }}>
+                <FormLabel htmlFor="desc-content">Description</FormLabel>
+                <Textarea
+                  id="desc-content"
+                  rows={4}
+                  value={element.content || element.label || ''}
+                  onChange={(e) =>
+                    handleUpdateElement({
+                      content: e.target.value,
+                      label: e.target.value,
+                      name: e.target.value,
+                    })
+                  }
+                  placeholder="Enter descriptive instruction or paragraph..."
+                />
+              </FormField>
+            )}
+
+            {/* Alert / Notice */}
+            {element.type === 'alert' && (
+              <FormField style={{ margin: 0 }}>
+                <FormLabel htmlFor="alert-content">Notice Message</FormLabel>
+                <Textarea
+                  id="alert-content"
+                  rows={3}
+                  value={element.content || element.label || ''}
+                  onChange={(e) =>
+                    handleUpdateElement({
+                      content: e.target.value,
+                      label: e.target.value,
+                      name: e.target.value,
+                    })
+                  }
+                  placeholder="Important instructions or notice..."
+                />
+              </FormField>
+            )}
+
+            {/* Divider */}
+            {element.type === 'divider' && (
+              <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', margin: 0 }}>
+                Horizontal dividing line separating form content.
+              </p>
+            )}
+
+            {/* Spacer */}
+            {element.type === 'spacer' && (
+              <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', margin: 0 }}>
+                Vertical whitespace cushion between elements.
+              </p>
+            )}
+          </div>
+
+          {/* 2. CONFIGURATION (Only when applicable) */}
+          {hasConfiguration && (
+            <div className="properties-group">
+              <div className="properties-group__subtitle">
+                <span className="material-icon">tune</span>
+                <span>Configuration</span>
               </div>
 
-              {/* Label & Placeholder */}
-              <FormField style={{ margin: 0 }}>
-                <FormLabel htmlFor="field-label">Display Label</FormLabel>
-                <Input
-                  id="field-label"
-                  value={element.label || ''}
-                  onChange={(e) => handleUpdateElement({ label: e.target.value })}
-                  placeholder="Field label shown to user..."
-                />
-              </FormField>
+              {/* Select */}
+              {element.type === 'select' && (
+                <>
+                  <FormField style={{ margin: 0 }}>
+                    <FormLabel htmlFor="field-options">Options (one per line)</FormLabel>
+                    <Textarea
+                      id="field-options"
+                      rows={4}
+                      value={(element.options || []).join('\n')}
+                      onChange={(e) => {
+                        const opts = e.target.value.split('\n');
+                        handleUpdateElement({ options: opts });
+                      }}
+                      placeholder="Option 1&#10;Option 2&#10;Option 3"
+                    />
+                  </FormField>
 
-              {element.type !== 'checkbox' && element.type !== 'date' && element.type !== 'file' && (
+                  <FormField style={{ margin: 0 }}>
+                    <FormLabel htmlFor="field-default-val">Default Value</FormLabel>
+                    <Select
+                      id="field-default-val"
+                      value={element.defaultValue || ''}
+                      onChange={(e) => handleUpdateElement({ defaultValue: e.target.value || undefined })}
+                    >
+                      <option value="">(None)</option>
+                      {(element.options || []).filter(Boolean).map((opt, i) => (
+                        <option key={`${opt}-${i}`} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
+
+                  <div className="properties-toggle-row">
+                    <input
+                      type="checkbox"
+                      id="select-multiple"
+                      checked={!!element.multiple}
+                      onChange={(e) => handleUpdateElement({ multiple: e.target.checked })}
+                    />
+                    <label htmlFor="select-multiple">Multiple Selection</label>
+                  </div>
+                </>
+              )}
+
+              {/* Radio */}
+              {element.type === 'radio' && (
+                <>
+                  <FormField style={{ margin: 0 }}>
+                    <FormLabel htmlFor="field-options">Options (one per line)</FormLabel>
+                    <Textarea
+                      id="field-options"
+                      rows={4}
+                      value={(element.options || []).join('\n')}
+                      onChange={(e) => {
+                        const opts = e.target.value.split('\n');
+                        handleUpdateElement({ options: opts });
+                      }}
+                      placeholder="Option 1&#10;Option 2"
+                    />
+                  </FormField>
+
+                  <FormField style={{ margin: 0 }}>
+                    <FormLabel htmlFor="field-default-val">Default Value</FormLabel>
+                    <Select
+                      id="field-default-val"
+                      value={element.defaultValue || ''}
+                      onChange={(e) => handleUpdateElement({ defaultValue: e.target.value || undefined })}
+                    >
+                      <option value="">(None)</option>
+                      {(element.options || []).filter(Boolean).map((opt, i) => (
+                        <option key={`${opt}-${i}`} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
+                </>
+              )}
+
+              {/* Checkbox */}
+              {element.type === 'checkbox' && (
+                <div className="properties-toggle-row">
+                  <input
+                    type="checkbox"
+                    id="checkbox-default"
+                    checked={!!element.defaultValue}
+                    onChange={(e) => handleUpdateElement({ defaultValue: e.target.checked })}
+                  />
+                  <label htmlFor="checkbox-default">Checked by default</label>
+                </div>
+              )}
+
+              {/* Text */}
+              {element.type === 'text' && (
+                <>
+                  <FormField style={{ margin: 0 }}>
+                    <FormLabel htmlFor="field-placeholder">Placeholder</FormLabel>
+                    <Input
+                      id="field-placeholder"
+                      value={element.placeholder || ''}
+                      onChange={(e) => handleUpdateElement({ placeholder: e.target.value })}
+                      placeholder="e.g. Enter text..."
+                    />
+                  </FormField>
+                  <FormField style={{ margin: 0 }}>
+                    <FormLabel htmlFor="field-default">Default Value</FormLabel>
+                    <Input
+                      id="field-default"
+                      value={element.defaultValue ?? ''}
+                      onChange={(e) => handleUpdateElement({ defaultValue: e.target.value || undefined })}
+                      placeholder="Initial value..."
+                    />
+                  </FormField>
+                </>
+              )}
+
+              {/* Textarea */}
+              {element.type === 'textarea' && (
+                <>
+                  <FormField style={{ margin: 0 }}>
+                    <FormLabel htmlFor="field-placeholder">Placeholder</FormLabel>
+                    <Input
+                      id="field-placeholder"
+                      value={element.placeholder || ''}
+                      onChange={(e) => handleUpdateElement({ placeholder: e.target.value })}
+                      placeholder="e.g. Type your message here..."
+                    />
+                  </FormField>
+                  <FormField style={{ margin: 0 }}>
+                    <FormLabel htmlFor="field-default">Default Value</FormLabel>
+                    <Textarea
+                      id="field-default"
+                      rows={3}
+                      value={element.defaultValue ?? ''}
+                      onChange={(e) => handleUpdateElement({ defaultValue: e.target.value || undefined })}
+                      placeholder="Initial content..."
+                    />
+                  </FormField>
+                </>
+              )}
+
+              {/* Number */}
+              {element.type === 'number' && (
+                <>
+                  <FormField style={{ margin: 0 }}>
+                    <FormLabel htmlFor="field-placeholder">Placeholder</FormLabel>
+                    <Input
+                      id="field-placeholder"
+                      value={element.placeholder || ''}
+                      onChange={(e) => handleUpdateElement({ placeholder: e.target.value })}
+                      placeholder="e.g. 0"
+                    />
+                  </FormField>
+                  <FormField style={{ margin: 0 }}>
+                    <FormLabel htmlFor="field-default">Default Value</FormLabel>
+                    <Input
+                      id="field-default"
+                      type="number"
+                      value={element.defaultValue ?? ''}
+                      onChange={(e) =>
+                        handleUpdateElement({
+                          defaultValue: e.target.value !== '' ? Number(e.target.value) : undefined,
+                        })
+                      }
+                      placeholder="e.g. 1"
+                    />
+                  </FormField>
+                </>
+              )}
+
+              {/* Email */}
+              {element.type === 'email' && (
+                <>
+                  <FormField style={{ margin: 0 }}>
+                    <FormLabel htmlFor="field-placeholder">Placeholder</FormLabel>
+                    <Input
+                      id="field-placeholder"
+                      type="email"
+                      value={element.placeholder || ''}
+                      onChange={(e) => handleUpdateElement({ placeholder: e.target.value })}
+                      placeholder="e.g. name@example.com"
+                    />
+                  </FormField>
+                  <FormField style={{ margin: 0 }}>
+                    <FormLabel htmlFor="field-default">Default Value</FormLabel>
+                    <Input
+                      id="field-default"
+                      type="email"
+                      value={element.defaultValue ?? ''}
+                      onChange={(e) => handleUpdateElement({ defaultValue: e.target.value || undefined })}
+                      placeholder="e.g. user@domain.com"
+                    />
+                  </FormField>
+                </>
+              )}
+
+              {/* Phone */}
+              {element.type === 'phone' && (
+                <>
+                  <FormField style={{ margin: 0 }}>
+                    <FormLabel htmlFor="field-placeholder">Placeholder</FormLabel>
+                    <Input
+                      id="field-placeholder"
+                      type="tel"
+                      value={element.placeholder || ''}
+                      onChange={(e) => handleUpdateElement({ placeholder: e.target.value })}
+                      placeholder="e.g. +1 (555) 000-0000"
+                    />
+                  </FormField>
+                  <FormField style={{ margin: 0 }}>
+                    <FormLabel htmlFor="field-default">Default Value</FormLabel>
+                    <Input
+                      id="field-default"
+                      type="tel"
+                      value={element.defaultValue ?? ''}
+                      onChange={(e) => handleUpdateElement({ defaultValue: e.target.value || undefined })}
+                      placeholder="Initial phone..."
+                    />
+                  </FormField>
+                </>
+              )}
+
+              {/* Date */}
+              {element.type === 'date' && (
                 <FormField style={{ margin: 0 }}>
-                  <FormLabel htmlFor="field-placeholder">Placeholder Hint</FormLabel>
+                  <FormLabel htmlFor="field-default">Default Value</FormLabel>
                   <Input
-                    id="field-placeholder"
-                    value={element.placeholder || ''}
-                    onChange={(e) => handleUpdateElement({ placeholder: e.target.value })}
-                    placeholder="Hint text..."
+                    id="field-default"
+                    type="date"
+                    value={element.defaultValue ?? ''}
+                    onChange={(e) => handleUpdateElement({ defaultValue: e.target.value || undefined })}
                   />
                 </FormField>
               )}
 
-              {/* Helper text */}
-              <FormField style={{ margin: 0 }}>
-                <FormLabel htmlFor="field-helper">Secondary Helper Text</FormLabel>
-                <Input
-                  id="field-helper"
-                  value={element.helperText || ''}
-                  onChange={(e) => handleUpdateElement({ helperText: e.target.value })}
-                  placeholder="Optional guidance below the input..."
-                />
-              </FormField>
+              {/* File */}
+              {element.type === 'file' && (
+                <div className="properties-toggle-row">
+                  <input
+                    type="checkbox"
+                    id="file-multiple"
+                    checked={!!element.multiple}
+                    onChange={(e) => handleUpdateElement({ multiple: e.target.checked })}
+                  />
+                  <label htmlFor="file-multiple">Multiple Selection</label>
+                </div>
+              )}
 
-              {/* Required Toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              {/* Button */}
+              {element.type === 'button' && (
+                <FormField style={{ margin: 0 }}>
+                  <FormLabel htmlFor="btn-action">Button Action</FormLabel>
+                  <Select
+                    id="btn-action"
+                    value={element.buttonAction || 'submit'}
+                    onChange={(e) => handleUpdateElement({ buttonAction: e.target.value as any })}
+                  >
+                    <option value="submit">Submit Form</option>
+                    <option value="reset">Reset Form</option>
+                    <option value="button">Standard Button</option>
+                  </Select>
+                </FormField>
+              )}
+
+              {/* Title */}
+              {element.type === 'title' && (
+                <FormField style={{ margin: 0 }}>
+                  <FormLabel htmlFor="heading-level">Heading Level</FormLabel>
+                  <Select
+                    id="heading-level"
+                    value={element.headingLevel || 2}
+                    onChange={(e) =>
+                      handleUpdateElement({ headingLevel: Number(e.target.value) as 1 | 2 | 3 })
+                    }
+                  >
+                    <option value={1}>Heading 1 (Main Title)</option>
+                    <option value={2}>Heading 2 (Section Title)</option>
+                    <option value={3}>Heading 3 (Subheading)</option>
+                  </Select>
+                </FormField>
+              )}
+
+              {/* Alert */}
+              {element.type === 'alert' && (
+                <FormField style={{ margin: 0 }}>
+                  <FormLabel htmlFor="alert-variant">Notice Style</FormLabel>
+                  <Select
+                    id="alert-variant"
+                    value={element.alertVariant || 'info'}
+                    onChange={(e) => handleUpdateElement({ alertVariant: e.target.value as any })}
+                  >
+                    <option value="info">Info (Blue)</option>
+                    <option value="warning">Warning (Yellow)</option>
+                    <option value="success">Success (Green)</option>
+                  </Select>
+                </FormField>
+              )}
+            </div>
+          )}
+
+          {/* 3. VALIDATION (Only when applicable) */}
+          {hasValidation && (
+            <div className="properties-group">
+              <div className="properties-group__subtitle">
+                <span className="material-icon">verified_user</span>
+                <span>Validation</span>
+              </div>
+
+              {/* Required toggle */}
+              <div className="properties-toggle-row">
                 <input
                   type="checkbox"
                   id="field-required"
                   checked={!!element.required}
                   onChange={(e) => handleUpdateElement({ required: e.target.checked })}
-                  style={{ accentColor: 'var(--color-primary)', width: '16px', height: '16px' }}
                 />
-                <label htmlFor="field-required" style={{ fontSize: 'var(--font-size-sm)', cursor: 'pointer' }}>
-                  Required field for form submission
+                <label htmlFor="field-required">
+                  {element.type === 'checkbox' ? 'Must be checked to submit' : 'Required'}
                 </label>
               </div>
 
-              {/* Select / Radio Options Configuration */}
-              {(element.type === 'select' || element.type === 'radio') && (
-                <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-3)' }}>
-                  <FormLabel>Choices / Options (one per line)</FormLabel>
-                  <Textarea
-                    rows={4}
-                    value={(element.options || []).join('\n')}
-                    onChange={(e) => {
-                      const opts = e.target.value.split('\n');
-                      handleUpdateElement({ options: opts });
-                    }}
-                    placeholder="Option 1&#10;Option 2&#10;Option 3"
-                  />
+              {/* Text & Textarea Length rules */}
+              {(element.type === 'text' || element.type === 'textarea') && (
+                <div className="properties-two-col">
+                  <FormField style={{ margin: 0 }}>
+                    <FormLabel htmlFor="val-min-len">Minimum Length</FormLabel>
+                    <Input
+                      id="val-min-len"
+                      type="number"
+                      min={0}
+                      value={element.validation?.minLength ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value !== '' ? Number(e.target.value) : undefined;
+                        handleUpdateElement({
+                          validation: {
+                            enabled: true,
+                            ...element.validation,
+                            minLength: val,
+                          },
+                        });
+                      }}
+                      placeholder="e.g. 2"
+                    />
+                  </FormField>
+                  <FormField style={{ margin: 0 }}>
+                    <FormLabel htmlFor="val-max-len">Maximum Length</FormLabel>
+                    <Input
+                      id="val-max-len"
+                      type="number"
+                      min={0}
+                      value={element.validation?.maxLength ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value !== '' ? Number(e.target.value) : undefined;
+                        handleUpdateElement({
+                          validation: {
+                            enabled: true,
+                            ...element.validation,
+                            maxLength: val,
+                          },
+                        });
+                      }}
+                      placeholder="e.g. 100"
+                    />
+                  </FormField>
                 </div>
               )}
 
-              {/* Optional Regex Validation Rule */}
-              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-3)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-2)' }}>
-                  <FormLabel style={{ marginBottom: 0 }}>Regex Validation</FormLabel>
-                  <input
-                    type="checkbox"
-                    id="validation-enabled"
-                    checked={!!element.validation?.enabled}
-                    onChange={(e) => {
-                      const enabled = e.target.checked;
-                      handleUpdateElement({
-                        validation: {
-                          enabled,
-                          pattern: element.validation?.pattern || '',
-                          errorMessage: element.validation?.errorMessage || 'Invalid format',
-                          successMessage: element.validation?.successMessage || 'Format is valid',
-                        },
-                      });
-                    }}
-                    style={{ accentColor: 'var(--color-primary)', width: '16px', height: '16px' }}
-                  />
+              {/* Number Value rules */}
+              {element.type === 'number' && (
+                <div className="properties-two-col">
+                  <FormField style={{ margin: 0 }}>
+                    <FormLabel htmlFor="val-min-val">Minimum Value</FormLabel>
+                    <Input
+                      id="val-min-val"
+                      type="number"
+                      value={element.validation?.min ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value !== '' ? Number(e.target.value) : undefined;
+                        handleUpdateElement({
+                          validation: {
+                            enabled: true,
+                            ...element.validation,
+                            min: val,
+                          },
+                        });
+                      }}
+                      placeholder="e.g. 0"
+                    />
+                  </FormField>
+                  <FormField style={{ margin: 0 }}>
+                    <FormLabel htmlFor="val-max-val">Maximum Value</FormLabel>
+                    <Input
+                      id="val-max-val"
+                      type="number"
+                      value={element.validation?.max ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value !== '' ? Number(e.target.value) : undefined;
+                        handleUpdateElement({
+                          validation: {
+                            enabled: true,
+                            ...element.validation,
+                            max: val,
+                          },
+                        });
+                      }}
+                      placeholder="e.g. 100"
+                    />
+                  </FormField>
                 </div>
+              )}
 
-                {/* Only show validation configuration when enabled */}
-                {element.validation?.enabled && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', padding: 'var(--space-3)', backgroundColor: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-md)' }}>
-                    <FormField style={{ margin: 0 }}>
-                      <FormLabel htmlFor="val-pattern">Regex Pattern</FormLabel>
-                      <Input
-                        id="val-pattern"
-                        value={element.validation.pattern || ''}
-                        onChange={(e) =>
+              {/* Pattern / Regex for text, textarea, email, phone */}
+              {(element.type === 'text' ||
+                element.type === 'textarea' ||
+                element.type === 'email' ||
+                element.type === 'phone') && (
+                <div>
+                  <div className="properties-toggle-row">
+                    <input
+                      type="checkbox"
+                      id="validation-pattern-enabled"
+                      checked={Boolean(element.validation?.pattern)}
+                      onChange={(e) => {
+                        if (!e.target.checked) {
                           handleUpdateElement({
-                            validation: { ...element.validation!, pattern: e.target.value },
-                          })
-                        }
-                        placeholder="e.g. ^[a-zA-Z0-9_]{3,15}$"
-                        style={{ fontFamily: 'monospace', fontSize: '12px' }}
-                      />
-                    </FormField>
-
-                    <FormField style={{ margin: 0 }}>
-                      <FormLabel htmlFor="val-error">Error Message (on mismatch)</FormLabel>
-                      <Input
-                        id="val-error"
-                        value={element.validation.errorMessage || ''}
-                        onChange={(e) =>
+                            validation: {
+                              ...element.validation,
+                              enabled: Boolean(
+                                element.validation?.minLength ||
+                                element.validation?.maxLength ||
+                                element.validation?.min ||
+                                element.validation?.max,
+                              ),
+                              pattern: undefined,
+                              errorMessage: undefined,
+                            },
+                          });
+                        } else {
                           handleUpdateElement({
-                            validation: { ...element.validation!, errorMessage: e.target.value },
-                          })
+                            validation: {
+                              enabled: true,
+                              ...element.validation,
+                              pattern: '',
+                              errorMessage: 'Invalid format',
+                            },
+                          });
                         }
-                        placeholder="✕ Username format is invalid"
-                      />
-                    </FormField>
-
-                    <FormField style={{ margin: 0 }}>
-                      <FormLabel htmlFor="val-success">Success Message (on match)</FormLabel>
-                      <Input
-                        id="val-success"
-                        value={element.validation.successMessage || ''}
-                        onChange={(e) =>
-                          handleUpdateElement({
-                            validation: { ...element.validation!, successMessage: e.target.value },
-                          })
-                        }
-                        placeholder="✓ Username is valid"
-                      />
-                    </FormField>
+                      }}
+                    />
+                    <label htmlFor="validation-pattern-enabled">Pattern / Regex</label>
                   </div>
-                )}
-              </div>
-            </>
-          ) : (
-            /* Non-Interactive Element Configurations */
-            <>
-              {element.type === 'title' && (
-                <>
-                  <FormField style={{ margin: 0 }}>
-                    <FormLabel>Heading Level</FormLabel>
-                    <Select
-                      value={element.headingLevel || 2}
-                      onChange={(e) => handleUpdateElement({ headingLevel: Number(e.target.value) as 1 | 2 | 3 })}
-                    >
-                      <option value={1}>Heading 1 (Main Title)</option>
-                      <option value={2}>Heading 2 (Section Title)</option>
-                      <option value={3}>Heading 3 (Subheading)</option>
-                    </Select>
-                  </FormField>
-                  <FormField style={{ margin: 0 }}>
-                    <FormLabel>Heading Text</FormLabel>
-                    <Input
-                      value={element.content || element.label || ''}
-                      onChange={(e) => handleUpdateElement({ content: e.target.value, label: e.target.value })}
-                      placeholder="Enter heading..."
-                    />
-                  </FormField>
-                </>
-              )}
 
-              {element.type === 'description' && (
-                <FormField style={{ margin: 0 }}>
-                  <FormLabel>Description Content</FormLabel>
-                  <Textarea
-                    rows={4}
-                    value={element.content || element.label || ''}
-                    onChange={(e) => handleUpdateElement({ content: e.target.value, label: e.target.value })}
-                    placeholder="Enter descriptive instruction or paragraph..."
-                  />
-                </FormField>
-              )}
+                  {element.validation?.pattern !== undefined && (
+                    <div className="properties-sub-box">
+                      <FormField style={{ margin: 0 }}>
+                        <FormLabel htmlFor="val-pattern">Pattern</FormLabel>
+                        <Input
+                          id="val-pattern"
+                          value={element.validation.pattern || ''}
+                          onChange={(e) =>
+                            handleUpdateElement({
+                              validation: {
+                                enabled: true,
+                                ...element.validation,
+                                pattern: e.target.value,
+                              },
+                            })
+                          }
+                          placeholder="e.g. ^[A-Za-z0-9]+$"
+                          style={{ fontFamily: 'monospace', fontSize: '12px' }}
+                        />
+                      </FormField>
 
-              {element.type === 'alert' && (
-                <>
-                  <FormField style={{ margin: 0 }}>
-                    <FormLabel>Notice Variant</FormLabel>
-                    <Select
-                      value={element.alertVariant || 'info'}
-                      onChange={(e) => handleUpdateElement({ alertVariant: e.target.value as any })}
-                    >
-                      <option value="info">Info (Blue)</option>
-                      <option value="warning">Warning (Yellow)</option>
-                      <option value="success">Success (Green)</option>
-                    </Select>
-                  </FormField>
-                  <FormField style={{ margin: 0 }}>
-                    <FormLabel>Notice Message</FormLabel>
-                    <Textarea
-                      rows={3}
-                      value={element.content || element.label || ''}
-                      onChange={(e) => handleUpdateElement({ content: e.target.value, label: e.target.value })}
-                      placeholder="Important instructions or guidance..."
-                    />
-                  </FormField>
-                </>
+                      <FormField style={{ margin: 0 }}>
+                        <FormLabel htmlFor="val-error">Error Message</FormLabel>
+                        <Input
+                          id="val-error"
+                          value={element.validation.errorMessage || ''}
+                          onChange={(e) =>
+                            handleUpdateElement({
+                              validation: {
+                                enabled: true,
+                                ...element.validation,
+                                errorMessage: e.target.value,
+                              },
+                            })
+                          }
+                          placeholder="e.g. Only letters and numbers allowed"
+                        />
+                      </FormField>
+                    </div>
+                  )}
+                </div>
               )}
-
-              {element.type === 'button' && (
-                <>
-                  <FormField style={{ margin: 0 }}>
-                    <FormLabel>Button Action</FormLabel>
-                    <Select
-                      value={element.buttonAction || 'submit'}
-                      onChange={(e) => handleUpdateElement({ buttonAction: e.target.value as any })}
-                    >
-                      <option value="submit">Submit Form</option>
-                      <option value="reset">Reset Form</option>
-                      <option value="button">Standard Button</option>
-                    </Select>
-                  </FormField>
-                  <FormField style={{ margin: 0 }}>
-                    <FormLabel>Button Text</FormLabel>
-                    <Input
-                      value={element.buttonText || element.label || ''}
-                      onChange={(e) => handleUpdateElement({ buttonText: e.target.value, label: e.target.value })}
-                      placeholder="e.g. Submit Application"
-                    />
-                  </FormField>
-                </>
-              )}
-
-              {element.type === 'divider' && (
-                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
-                  Horizontal dividing line separating fields.
-                </p>
-              )}
-
-              {element.type === 'spacer' && (
-                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
-                  Vertical whitespace cushion between elements.
-                </p>
-              )}
-            </>
+            </div>
           )}
 
           <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-3)' }}>
