@@ -1,90 +1,106 @@
-# Minimal Full-Stack SaaS Monorepo
+# SaaS Form Platform Monorepo
 
-A clean, modular, and production-ready full-stack SaaS application monorepo featuring a single React application (Admin & User areas), a NestJS backend, MongoDB with Mongoose, JWT authentication, and immediate session termination via Socket.IO WebSocket events upon user suspension.
+A modular, full-stack SaaS form-building and submission platform featuring a Single Page Application (Admin & User workspaces, Drag-and-Drop Form Builder, Form Preview, Submissions Data Table, and Public Form Runtime), a NestJS REST API with Socket.IO real-time event broadcasting, and a MongoDB database with Mongoose ODM.
 
 ---
 
-## Architecture & Monorepo Structure
+## 1. Monorepo Structure
 
 ```text
 /
 ├── apps/
 │   ├── web/                 # React 19 + TypeScript + Vite frontend
-│   └── api/                 # NestJS + TypeScript + Mongoose backend
+│   └── api/                 # NestJS 11 + Mongoose backend REST API & WebSocket server
 │
 ├── packages/
-│   └── shared/              # Shared types, DTO interfaces, enums, constants
+│   └── shared/              # Shared types, DTO interfaces, enums, AST schema definitions
 │
+├── docs/                    # Complete architectural, domain, and operational documentation
 ├── package.json             # Root workspace scripts (dev, build, lint, test, seed)
-├── pnpm-workspace.yaml      # pnpm workspace definition
-└── README.md
+├── pnpm-workspace.yaml      # pnpm workspace configuration
+├── AGENTS.md                # Engineering rules and directives for AI agents
+├── ARCHITECTURE.md          # System architecture and data flow blueprints
+├── CONTRIBUTING.md          # Contributor guide and PR workflow
+└── SECURITY.md              # Security policies and threat model
 ```
-
-- **Frontend**: Single React application containing both Admin and User interfaces.
-- **Backend**: Modular NestJS application (`auth`, `users`, `admin`, `dashboard`, `websocket`, `common`).
-- **Database**: Local MongoDB connected via Mongoose (`mongodb://127.0.0.1:27017/saas_db`).
-- **Real-Time**: Socket.IO for immediate targeted user suspension.
-- **Authentication**: JWT-based authentication with role authorization and backend suspension enforcement.
 
 ---
 
-## 1. Quick Start
+## 2. Quick Start
 
 ### Prerequisites
-- Node.js >= 20
-- pnpm >= 9
-- Local MongoDB running on `mongodb://127.0.0.1:27017`
+- **Node.js**: `>= 20.0.0`
+- **pnpm**: `>= 9.0.0`
+- **MongoDB**: Running locally at `mongodb://127.0.0.1:27017/saas_db`
 
-### Setup & Run
+### Installation & Local Setup
 
 1. **Install Dependencies**:
    ```bash
    pnpm install
    ```
 
-2. **Seed the Database**:
+2. **Seed Database**:
    ```bash
    pnpm seed
    ```
-   *Seeded Accounts:*
-   - **Administrator:**
-     - **Email:** `admin@saas.local`
-     - **Password:** `AdminPassword123!`
-     - **Role:** `ADMIN`
-   - **Sample Users (Password for all: `UserPassword123!`):**
+   *Seeded Credentials:*
+   - **Administrator Account:**
+     - Email: `admin@saas.local`
+     - Password: `AdminPassword123!`
+     - Role: `ADMIN`
+   - **Sample User Accounts (Password: `UserPassword123!`):**
      - `alex.morgan@company.com` (Active)
      - `sarah.chen@techflow.io` (Active)
-     - `marcus.vance@vancestudios.com` (Active)
      - `david.kim@apexdesign.co` (Suspended)
      - `hannah.schmidt@berlinai.de` (Suspended)
-     - `lucas.silva@paulista.br` (Suspended)
-     - ...and more (15+ sample users)
 
-3. **Start Development Environment**:
+3. **Start Development Server**:
    ```bash
    pnpm dev
    ```
-   - **Frontend:** [http://localhost:5173](http://localhost:5173)
-   - **Backend API:** [http://localhost:3000](http://localhost:3000)
+   - **Frontend Application**: [http://localhost:5173](http://localhost:5173)
+   - **Backend API**: [http://localhost:3000](http://localhost:3000)
 
-4. **Run Automated Tests**:
+4. **Run Verification & Tests**:
    ```bash
-   pnpm test
-   ```
-
-5. **Typecheck & Lint**:
-   ```bash
+   # Typecheck and lint across all packages
    pnpm lint
-   ```
 
-6. **Production Build**:
-   ```bash
+   # Run automated Jest E2E test suites
+   pnpm test
+
+   # Full production build
    pnpm build
    ```
 
 ---
 
-## 2. Environment Configuration
+## 3. Key Capabilities & Feature Modules
+
+### A. Authentication & Session Management
+- **Role-Based Portals**: Unified `/login` seamlessly routes Admins to `/admin/dashboard` and regular users to `/dashboard`.
+- **User Registration**: `/register` provisions standard users (`Role.USER`). Admin creation is strictly controlled via environment seeding.
+- **Real-Time Session Revocation**: When an admin suspends a user account (`PATCH /admin/users/:id/suspend`), the backend issues an immediate WebSocket event (`user:suspended`) over Socket.IO to terminate the active browser session instantly.
+
+### B. Form Builder & Continuous Drafting
+- **Hierarchical Form Canvas**: Sections $\to$ Zones $\to$ Elements canvas composition with dynamic responsive column grids.
+- **Continuous Autosave**: Edits mutate the active `Form.draft` without impacting deployed versions.
+- **Properties Panel**: Granular dimension controls (width presets, custom width, custom height) constrained with `maxWidth: 100%` and anti-overflow protections.
+
+### C. Deployment & Versioning
+- **Immutable Releases**: Deploying a draft snapshots the schema into a frozen `FormVersion` record with incremental version numbers (`Version 1`, `Version 2`, etc.).
+- **Live Public Form**: Public forms are served at `/f/:publicId` without requiring authentication.
+- **Historical Integrity**: Submissions are permanently indexed against the active `versionId` deployed at the time of submission.
+
+### D. Submissions & Analytics
+- **Interactive Data Table**: View submissions with dynamic column projections derived from field labels.
+- **CSV Export**: Streamed submission data exports via `GET /forms/:id/data?format=csv`.
+- **Form Analytics**: Total responses, version count, and activity feeds.
+
+---
+
+## 4. Environment Variables
 
 ### Backend (`apps/api/.env`)
 ```ini
@@ -106,77 +122,14 @@ VITE_WS_URL="http://localhost:3000"
 
 ---
 
-## 3. Features & User Flows
+## 5. Documentation Navigation
 
-### A. Authentication & Registration
-- **/login**: Unified login supporting both Admin and User credentials.
-  - Admin $\to$ `/admin/dashboard`
-  - Normal User $\to$ `/dashboard`
-  - Suspended User $\to$ Rejection with immediate redirect to `/account-suspended`
-- **/register**: Public registration restricted exclusively to regular users (`ROLE: USER`).
-- **Single Admin Guarantee**: Admin accounts cannot register publicly; the sole administrator is configured via environment seed.
+Detailed technical documentation is available in the [`docs/`](file:///c:/Users/Muhammed%20Jasim/machine-test/docs/) directory:
 
-### B. User Roles, Navigation & Layout
-- **Roles:** `ADMIN` and `USER`.
-- **Sidebar Navigation:**
-  - **Admin Sidebar:**
-    - `Dashboard` (`/admin/dashboard`)
-    - `Users` (`/admin/users`)
-    - `Profile` (`/profile`)
-    - `──────────────`
-    - `Logout`
-  - **User Sidebar:**
-    - `Dashboard` (`/dashboard` - Upcoming page)
-    - `Profile` (`/profile`)
-    - `──────────────`
-    - `Logout`
-- **Header Profile Tile:**
-  - Displayed on both Admin and User headers:
-    - User Avatar / Initial circle
-    - Full Name
-    - Email address
-  - Clicking the tile navigates directly to `/profile`.
-- **Profile Management (`/profile`):**
-  - Displays read-only account details: Role, Account Status, User ID, Member Since date.
-  - Interactive **Edit Profile** form allowing users to update their **Name** and **Email**.
-  - All profile updates are persisted to MongoDB via `PATCH /users/me`.
-  - Non-editable fields (`id`, `role`, `status`) are strictly protected on the backend.
-
-### C. Real-Time Account Suspension
-1. Admin navigates to `/admin/users`, searches for a user, and clicks **Suspend**.
-2. Confirmation dialog prompts before executing destructive action.
-3. Backend updates user's status in MongoDB to `SUSPENDED`.
-4. Backend triggers targeted WebSocket event (`user:suspended`) strictly to `user:{userId}` room.
-5. Suspended user's browser receives real-time event without requiring page refresh:
-   - Auth session is wiped.
-   - Socket is terminated.
-   - Browser redirects to `/account-suspended`.
-6. Independent backend enforcement: Any subsequent API call attempted with the suspended user's token is immediately rejected with HTTP `403 Forbidden` (`ACCOUNT_SUSPENDED`).
-7. Admin can click **Unsuspend**, restoring active status so user can log in again.
-
-### D. Admin Dashboard & Metrics
-- `/admin/dashboard` fetches live statistics from `GET /admin/dashboard/stats`:
-  - **Total Users**
-  - **Active Users**
-  - **Suspended Users**
-
-### E. 404 Fallback
-- `/404`: Global fallback handling invalid routes with smart navigation buttons back to the appropriate dashboard.
-
----
-
-## 4. API Endpoints
-
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| `POST` | `/auth/register` | Public | Register a normal user |
-| `POST` | `/auth/login` | Public | Login for admin and users |
-| `GET` | `/users/me` | Authenticated | Get current authenticated user's profile |
-| `PATCH` | `/users/me` | Authenticated | Update user's own profile (`name`, `email`) |
-| `GET` | `/admin/dashboard/stats` | Admin | Get real-time user statistics |
-| `GET` | `/admin/users` | Admin | List users with search query (`?search=`) |
-| `GET` | `/admin/users/:id` | Admin | Get user details |
-| `PATCH` | `/admin/users/:id/suspend` | Admin | Suspend user & emit socket event |
-| `PATCH` | `/admin/users/:id/unsuspend` | Admin | Unsuspend user account |
-
-# machine-test
+- [Documentation Index](file:///c:/Users/Muhammed%20Jasim/machine-test/docs/README.md)
+- [Source of Truth Mapping](file:///c:/Users/Muhammed%20Jasim/machine-test/docs/source-of-truth.md)
+- [Documentation Audit & Verification Matrix](file:///c:/Users/Muhammed%20Jasim/machine-test/docs/documentation-audit.md)
+- [Architecture Risks & Technical Debt](file:///c:/Users/Muhammed%20Jasim/machine-test/docs/architecture-risks.md)
+- [Architecture Decision Records (ADRs)](file:///c:/Users/Muhammed%20Jasim/machine-test/docs/decisions/README.md)
+- [Domain Specifications](file:///c:/Users/Muhammed%20Jasim/machine-test/docs/domains/README.md)
+- [API & Database Contracts](file:///c:/Users/Muhammed%20Jasim/machine-test/docs/contracts/api.md)
