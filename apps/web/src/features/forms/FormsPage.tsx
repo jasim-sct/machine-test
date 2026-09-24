@@ -313,7 +313,7 @@ export const FormsPage: React.FC = () => {
             </FormLabel>
             <Input
               id="new-form-name"
-              placeholder="e.g. Customer Feedback Survey"
+              placeholder="e.g. Sample Form, Intake Form"
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
               disabled={isSubmitting}

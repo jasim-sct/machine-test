@@ -2,7 +2,7 @@ import React from 'react';
 import './AppShell.scss';
 
 export interface AppShellProps {
-  sidebar: React.ReactNode;
+  sidebar?: React.ReactNode;
   header?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
@@ -15,7 +15,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`app-shell ${className}`.trim()}>
+    <div className={`app-shell ${!sidebar ? 'app-shell--no-sidebar' : ''} ${className}`.trim()}>
       {sidebar}
       <div className="app-shell__main">
         {header}

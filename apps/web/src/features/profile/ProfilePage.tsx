@@ -3,9 +3,6 @@ import { useAuth } from '../../app/providers/AuthProvider';
 import {
   PageHeader,
   ContentContainer,
-  Card,
-  CardHeader,
-  CardContent,
   FormField,
   FormLabel,
   Input,
@@ -13,17 +10,19 @@ import {
   Alert,
   UserStatusBadge,
   Badge,
+  Avatar,
 } from '../../components';
+import './ProfilePage.scss';
 
 export const ProfilePage: React.FC = () => {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, logout } = useAuth();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -34,10 +33,11 @@ export const ProfilePage: React.FC = () => {
 
   if (!user) return null;
 
-  const handleCancel = () => {
+  const isDirty = name !== (user.name || '') || email !== (user.email || '');
+
+  const handleReset = () => {
     setName(user.name || '');
     setEmail(user.email || '');
-    setIsEditing(false);
     setErrorMessage(null);
     setSuccessMessage(null);
   };
@@ -48,12 +48,12 @@ export const ProfilePage: React.FC = () => {
     setSuccessMessage(null);
 
     if (!name.trim()) {
-      setErrorMessage('Name cannot be empty');
+      setErrorMessage('Full name is required');
       return;
     }
 
     if (!email.trim()) {
-      setErrorMessage('Email cannot be empty');
+      setErrorMessage('Email address is required');
       return;
     }
 
@@ -64,13 +64,19 @@ export const ProfilePage: React.FC = () => {
         name: name.trim(),
         email: email.trim(),
       });
-      setSuccessMessage('Profile updated successfully');
-      setIsEditing(false);
+      setSuccessMessage('Profile information updated successfully');
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to update profile');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCopyId = () => {
+    if (!user.id) return;
+    navigator.clipboard.writeText(user.id);
+    setCopiedId(true);
+    setTimeout(() => setCopiedId(false), 2000);
   };
 
   const formattedDate = user.createdAt
@@ -82,220 +88,220 @@ export const ProfilePage: React.FC = () => {
     : 'N/A';
 
   return (
-    <ContentContainer>
+    <ContentContainer size="wide" className="profile-page">
+      {/* Page Header */}
       <PageHeader
-        title="Profile Settings"
-        description="Manage your personal account details"
-        actions={
-          !isEditing && (
-            <Button
-              variant="primary"
-              onClick={() => {
-                setIsEditing(true);
-                setSuccessMessage(null);
-                setErrorMessage(null);
-              }}
-              id="edit-profile-btn"
-            >
-              Edit Profile
-            </Button>
-          )
-        }
+        title="Profile"
+        description="Manage your personal information, account role, and session credentials."
       />
 
+      {/* Status Alerts */}
       {successMessage && (
-        <Alert variant="success" id="profile-success-alert">
+        <Alert
+          variant="success"
+          id="profile-success-alert"
+          onClose={() => setSuccessMessage(null)}
+        >
           {successMessage}
         </Alert>
       )}
 
       {errorMessage && (
-        <Alert variant="error" id="profile-error-alert">
+        <Alert
+          variant="error"
+          id="profile-error-alert"
+          onClose={() => setErrorMessage(null)}
+        >
           {errorMessage}
         </Alert>
       )}
 
-      <div style={{ maxWidth: '680px' }}>
-        <Card>
-          <CardHeader
-            title={isEditing ? 'Edit Profile Details' : 'Account Details'}
-            description={
-              isEditing
-                ? 'Update your full name and primary email address.'
-                : 'Your current account profile information.'
-            }
-          />
-          <CardContent>
-            {isEditing ? (
-              <form onSubmit={handleSubmit} id="edit-profile-form">
-                <FormField>
-                  <FormLabel htmlFor="edit-name" required>
-                    Full Name
-                  </FormLabel>
-                  <Input
-                    id="edit-name"
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Your full name"
-                    required
-                    disabled={isSubmitting}
-                  />
-                </FormField>
+      {/* Main Multi-Column Layout */}
+      <div className="profile-grid">
+        {/* Left Column: Personal Information Form */}
+        <section className="profile-card profile-card--primary" aria-label="Personal Information">
+          <div className="profile-card__header">
+            <h2 className="profile-card__title">Personal Information</h2>
+            <p className="profile-card__subtitle">
+              Update your display name and primary contact address.
+            </p>
+          </div>
 
-                <FormField>
-                  <FormLabel htmlFor="edit-email" required>
-                    Email Address
-                  </FormLabel>
-                  <Input
-                    id="edit-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@company.com"
-                    required
-                    disabled={isSubmitting}
-                  />
-                </FormField>
+          {/* User Identity Banner */}
+          <div className="profile-identity">
+            <Avatar name={user.name || user.email} size="lg" />
+            <div className="profile-identity__info">
+              <div className="profile-identity__name-row">
+                <span className="profile-identity__name">{user.name || 'User'}</span>
+                <Badge variant={user.role === 'ADMIN' ? 'info' : 'neutral'}>
+                  {user.role === 'ADMIN' ? 'Administrator' : 'Member'}
+                </Badge>
+              </div>
+              <span className="profile-identity__email">{user.email}</span>
+            </div>
+          </div>
 
-                <div
-                  style={{
-                    marginTop: 'var(--space-6)',
-                    paddingTop: 'var(--space-4)',
-                    borderTop: '1px solid var(--color-border)',
+          {/* Edit Form */}
+          <form onSubmit={handleSubmit} id="profile-edit-form" className="profile-form">
+            <div className="profile-form__fields">
+              <FormField>
+                <FormLabel htmlFor="profile-name" required>
+                  Full Name
+                </FormLabel>
+                <Input
+                  id="profile-name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    setSuccessMessage(null);
+                    setErrorMessage(null);
                   }}
-                >
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                      gap: 'var(--space-4)',
-                    }}
-                  >
-                    <div>
-                      <FormLabel>Role (Non-editable)</FormLabel>
-                      <div>
-                        <Badge variant="info">{user.role}</Badge>
-                      </div>
-                    </div>
+                  placeholder="e.g., Jane Doe"
+                  required
+                  disabled={isSubmitting}
+                />
+              </FormField>
 
-                    <div>
-                      <FormLabel>Status (Non-editable)</FormLabel>
-                      <div>
-                        <UserStatusBadge status={user.status} />
-                      </div>
-                    </div>
-
-                    <div>
-                      <FormLabel>User ID</FormLabel>
-                      <div
-                        style={{
-                          fontFamily: 'monospace',
-                          fontSize: 'var(--font-size-xs)',
-                          color: 'var(--color-text-muted)',
-                        }}
-                      >
-                        {user.id}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: 'var(--space-3)',
-                    marginTop: 'var(--space-6)',
-                    justifyContent: 'flex-end',
+              <FormField>
+                <FormLabel htmlFor="profile-email" required>
+                  Email Address
+                </FormLabel>
+                <Input
+                  id="profile-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setSuccessMessage(null);
+                    setErrorMessage(null);
                   }}
+                  placeholder="e.g., jane@company.com"
+                  required
+                  disabled={isSubmitting}
+                />
+              </FormField>
+            </div>
+
+            <div className="profile-form__actions">
+              {isDirty && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleReset}
+                  disabled={isSubmitting}
+                  id="profile-reset-btn"
                 >
-                  <Button
+                  Reset
+                </Button>
+              )}
+              <Button
+                type="submit"
+                variant="primary"
+                isLoading={isSubmitting}
+                disabled={!isDirty || isSubmitting}
+                id="profile-save-btn"
+              >
+                Save Changes
+              </Button>
+            </div>
+          </form>
+        </section>
+
+        {/* Right Column: Account Information & Security */}
+        <div className="profile-sidebar">
+          {/* Account Details Section */}
+          <section className="profile-card" aria-label="Account Information">
+            <div className="profile-card__header">
+              <h2 className="profile-card__title">Account Details</h2>
+              <p className="profile-card__subtitle">
+                System-managed account attributes and role permissions.
+              </p>
+            </div>
+
+            <div className="profile-details-list">
+              <div className="profile-detail-item">
+                <span className="profile-detail-item__label">Account Role</span>
+                <span className="profile-detail-item__value">
+                  <Badge variant={user.role === 'ADMIN' ? 'info' : 'neutral'}>
+                    {user.role}
+                  </Badge>
+                </span>
+              </div>
+
+              <div className="profile-detail-item">
+                <span className="profile-detail-item__label">Account Status</span>
+                <span className="profile-detail-item__value">
+                  <UserStatusBadge status={user.status} />
+                </span>
+              </div>
+
+              <div className="profile-detail-item">
+                <span className="profile-detail-item__label">Member Since</span>
+                <span className="profile-detail-item__value profile-detail-item__value--text">
+                  {formattedDate}
+                </span>
+              </div>
+
+              <div className="profile-detail-item profile-detail-item--id">
+                <span className="profile-detail-item__label">Account ID</span>
+                <div className="profile-id-box">
+                  <code className="profile-id-box__code">{user.id}</code>
+                  <button
                     type="button"
-                    variant="secondary"
-                    onClick={handleCancel}
-                    disabled={isSubmitting}
-                    id="cancel-edit-btn"
+                    className="profile-id-box__copy-btn"
+                    onClick={handleCopyId}
+                    title="Copy Account ID"
+                    aria-label="Copy Account ID"
                   >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    isLoading={isSubmitting}
-                    id="save-profile-btn"
-                  >
-                    Save Changes
-                  </Button>
-                </div>
-              </form>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
-                <div>
-                  <FormLabel>Full Name</FormLabel>
-                  <div
-                    id="profile-display-name"
-                    style={{
-                      fontSize: 'var(--font-size-lg)',
-                      fontWeight: 'var(--font-weight-semibold)',
-                      color: 'var(--color-text-primary)',
-                    }}
-                  >
-                    {user.name}
-                  </div>
-                </div>
-
-                <div>
-                  <FormLabel>Email Address</FormLabel>
-                  <div
-                    id="profile-display-email"
-                    style={{
-                      fontSize: 'var(--font-size-base)',
-                      color: 'var(--color-text-secondary)',
-                    }}
-                  >
-                    {user.email}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                    gap: 'var(--space-4)',
-                    paddingTop: 'var(--space-4)',
-                    borderTop: '1px solid var(--color-border)',
-                  }}
-                >
-                  <div>
-                    <FormLabel>Role</FormLabel>
-                    <div>
-                      <Badge variant="info">{user.role}</Badge>
-                    </div>
-                  </div>
-
-                  <div>
-                    <FormLabel>Account Status</FormLabel>
-                    <div>
-                      <UserStatusBadge status={user.status} />
-                    </div>
-                  </div>
-
-                  <div>
-                    <FormLabel>Member Since</FormLabel>
-                    <div
-                      style={{
-                        fontSize: 'var(--font-size-sm)',
-                        color: 'var(--color-text-secondary)',
-                      }}
-                    >
-                      {formattedDate}
-                    </div>
-                  </div>
+                    <span className="material-icon" style={{ fontSize: '14px' }}>
+                      {copiedId ? 'check' : 'content_copy'}
+                    </span>
+                    <span>{copiedId ? 'Copied' : 'Copy'}</span>
+                  </button>
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          </section>
+
+          {/* Security & Session Actions */}
+          <section className="profile-card" aria-label="Security and Session Actions">
+            <div className="profile-card__header">
+              <h2 className="profile-card__title">Security & Session</h2>
+              <p className="profile-card__subtitle">
+                Authentication status and active workspace session.
+              </p>
+            </div>
+
+            <div className="profile-security-body">
+              <div className="profile-security-info">
+                <div className="profile-security-info__icon">
+                  <span className="material-icon">verified_user</span>
+                </div>
+                <div className="profile-security-info__text">
+                  <span className="profile-security-info__title">Active Authentication</span>
+                  <span className="profile-security-info__desc">
+                    Signed in via secure JWT token session
+                  </span>
+                </div>
+              </div>
+
+              <div className="profile-security-actions">
+                <Button
+                  variant="secondary"
+                  onClick={logout}
+                  id="profile-signout-btn"
+                  style={{ width: '100%', justifyContent: 'center' }}
+                >
+                  <span className="material-icon" style={{ fontSize: '18px', marginRight: '6px' }}>
+                    logout
+                  </span>
+                  Sign Out of Session
+                </Button>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
     </ContentContainer>
   );

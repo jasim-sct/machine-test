@@ -35,3 +35,4 @@ export * from './PageHeader/PageHeader';
 export * from './ContentContainer/ContentContainer';
 export * from './AuthLayout/AuthLayout';
 export * from './AuthCard/AuthCard';
+export * from './WorkspaceHeader/WorkspaceHeader';

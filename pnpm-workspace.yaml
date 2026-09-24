@@ -1,6 +1,6 @@
 packages:
-  - 'apps/*'
-  - 'packages/*'
+  - apps/*
+  - packages/*
 
 allowBuilds:
   '@embedded-postgres/linux-x64': true
@@ -9,3 +9,7 @@ allowBuilds:
   '@prisma/engines': true
   esbuild: true
   prisma: true
+
+ignoredBuiltDependencies:
+  - '@parcel/watcher'
+  - esbuild

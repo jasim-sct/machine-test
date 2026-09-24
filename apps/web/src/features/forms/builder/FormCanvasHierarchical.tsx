@@ -21,6 +21,9 @@ export interface FormCanvasHierarchicalProps {
   onAddElementType: (type: FormElementType, sectionId?: string, zoneId?: string, targetIndex?: number) => void;
   onAddSection: () => void;
   onAddZone: (sectionId: string) => void;
+  onDeleteSection?: (sectionId: string) => void;
+  onDeleteZone?: (sectionId: string, zoneId: string) => void;
+  onDeleteElement?: (sectionId: string, zoneId: string, elementId: string) => void;
   duplicateReferences: string[];
   previewDevice: 'desktop' | 'tablet' | 'mobile';
   customCss?: string;
@@ -40,6 +43,9 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
   onAddElementType,
   onAddSection,
   onAddZone: _onAddZone,
+  onDeleteSection,
+  onDeleteZone,
+  onDeleteElement,
   duplicateReferences: _duplicateReferences,
   previewDevice,
   customCss = '',
@@ -439,7 +445,7 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                       isDraggingThisSection ? 'canvas-section-card--dragging' : ''
                     } ${hoveredSectionId === section.id && activeDragKind === 'zone' ? 'canvas-section-card--zone-drop-target' : ''}`}
                     onClick={(e) => {
-                      if (!(e.target as HTMLElement).closest('.canvas-zone-card, .canvas-element-item')) {
+                      if (!(e.target as HTMLElement).closest('.canvas-zone-card, .canvas-element-item, .canvas-action-delete')) {
                         e.stopPropagation();
                         onSelect({ type: 'section', sectionId: section.id });
                       }
@@ -482,6 +488,23 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                       }
                     }}
                   >
+                    {/* Section Top-Right Delete Action */}
+                    {onDeleteSection && (
+                      <button
+                        type="button"
+                        className="canvas-action-delete canvas-action-delete--section"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteSection(section.id);
+                        }}
+                        title="Delete Section"
+                        aria-label="Delete Section"
+                        id={`btn-delete-section-${section.id}`}
+                      >
+                        <span className="material-icon">delete</span>
+                      </button>
+                    )}
+
                     {/* Render original section title only if defined in form data */}
                     {section.title && (
                       <h2
@@ -588,7 +611,7 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                                 } ${isHoveredZoneForElement ? 'canvas-zone-card--dragover' : ''}`}
                                 style={zoneWidthStyle}
                                 onClick={(e) => {
-                                  if (!(e.target as HTMLElement).closest('.canvas-element-item')) {
+                                  if (!(e.target as HTMLElement).closest('.canvas-element-item, .canvas-action-delete')) {
                                     e.stopPropagation();
                                     onSelect({ type: 'zone', sectionId: section.id, zoneId: zone.id });
                                   }
@@ -616,6 +639,23 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                                   handleZoneDrop(e, section.id, zone.id, dropIdx);
                                 }}
                               >
+                                {/* Zone Top-Right Delete Action */}
+                                {onDeleteZone && (
+                                  <button
+                                    type="button"
+                                    className="canvas-action-delete canvas-action-delete--zone"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onDeleteZone(section.id, zone.id);
+                                    }}
+                                    title="Delete Zone"
+                                    aria-label="Delete Zone"
+                                    id={`btn-delete-zone-${zone.id}`}
+                                  >
+                                    <span className="material-icon">delete</span>
+                                  </button>
+                                )}
+
                                 {/* Elements List inside Zone */}
                                 {zone.elements.length === 0 ? (
                                   <div
@@ -705,15 +745,34 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                                               handleZoneDrop(e, section.id, zone.id, dropIdx);
                                             }}
                                             onClick={(e) => {
-                                              e.stopPropagation();
-                                              onSelect({
-                                                type: 'element',
-                                                sectionId: section.id,
-                                                zoneId: zone.id,
-                                                elementId: element.id,
-                                              });
+                                              if (!(e.target as HTMLElement).closest('.canvas-action-delete')) {
+                                                e.stopPropagation();
+                                                onSelect({
+                                                  type: 'element',
+                                                  sectionId: section.id,
+                                                  zoneId: zone.id,
+                                                  elementId: element.id,
+                                                });
+                                              }
                                             }}
                                           >
+                                            {/* Element Top-Right Delete Action */}
+                                            {onDeleteElement && (
+                                              <button
+                                                type="button"
+                                                className="canvas-action-delete canvas-action-delete--element"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  onDeleteElement(section.id, zone.id, element.id);
+                                                }}
+                                                title="Delete Field"
+                                                aria-label="Delete Field"
+                                                id={`btn-delete-element-${element.id}`}
+                                              >
+                                                <span className="material-icon">delete</span>
+                                              </button>
+                                            )}
+
                                             {/* Live Rendered Control with Input Interaction Disabled */}
                                             <div style={{ pointerEvents: 'none', userSelect: 'none' }}>
                                               <FieldRenderer element={element} />

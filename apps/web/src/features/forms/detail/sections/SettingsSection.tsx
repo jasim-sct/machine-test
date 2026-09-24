@@ -146,7 +146,7 @@ export const SettingsSection: React.FC<SettingsSectionProps> = ({
                   id="settings-form-name"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
-                  placeholder="e.g. Customer Feedback Survey"
+                  placeholder="e.g. Sample Form, General Intake"
                   required
                 />
               </FormField>

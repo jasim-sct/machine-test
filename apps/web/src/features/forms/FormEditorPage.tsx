@@ -335,7 +335,9 @@ export const FormEditorPage: React.FC = () => {
   const handleDeleteSection = (sectionId: string) => {
     const updated = sections.filter((s) => s.id !== sectionId);
     updateSectionsAndHistory(updated);
-    setSelection(null);
+    if (selection && 'sectionId' in selection && selection.sectionId === sectionId) {
+      setSelection(null);
+    }
   };
 
   // Delete Zone
@@ -348,7 +350,9 @@ export const FormEditorPage: React.FC = () => {
     const copy = [...sections];
     copy[secIdx] = { ...sec, zones: filteredZones };
     updateSectionsAndHistory(copy);
-    setSelection(null);
+    if (selection && 'zoneId' in selection && selection.zoneId === zoneId) {
+      setSelection(null);
+    }
   };
 
   // Delete Element
@@ -367,7 +371,9 @@ export const FormEditorPage: React.FC = () => {
     const copy = [...sections];
     copy[secIdx] = { ...sec, zones: zonesCopy };
     updateSectionsAndHistory(copy);
-    setSelection(null);
+    if (selection && selection.type === 'element' && selection.elementId === elementId) {
+      setSelection(null);
+    }
   };
 
   // Add Element of type
@@ -477,17 +483,17 @@ export const FormEditorPage: React.FC = () => {
         defaultOptions = ['Option 1', 'Option 2'];
         break;
       case 'checkbox':
-        defaultName = 'Consent Checkbox';
-        defaultLabel = 'I accept the terms and conditions';
+        defaultName = 'Checkbox';
+        defaultLabel = 'Confirm or acknowledge selection';
         defaultPlaceholder = undefined;
         break;
       case 'file':
-        defaultName = 'Attachment';
-        defaultLabel = 'Upload Document';
+        defaultName = 'File Upload';
+        defaultLabel = 'Upload File';
         break;
       case 'button':
         defaultName = 'Submit Button';
-        defaultLabel = 'Submit Application';
+        defaultLabel = 'Submit Form';
         break;
       case 'title':
         defaultName = 'Heading';
@@ -954,6 +960,9 @@ export const FormEditorPage: React.FC = () => {
             onAddElementType={handleAddElementType}
             onAddSection={handleAddSection}
             onAddZone={handleAddZone}
+            onDeleteSection={handleDeleteSection}
+            onDeleteZone={handleDeleteZone}
+            onDeleteElement={handleDeleteElement}
             duplicateReferences={duplicateReferences}
             previewDevice={previewDevice}
             customCss={customCss}

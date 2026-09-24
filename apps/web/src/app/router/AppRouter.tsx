@@ -80,10 +80,11 @@ export const AppRouter: React.FC = () => {
       {/* Account suspended dedicated page */}
       <Route path="/account-suspended" element={<AccountSuspendedPage />} />
 
-      {/* Profile route adapting to user's role */}
+      {/* Profile / Settings route adapting to user's role */}
       <Route element={<ProtectedRoute />}>
         <Route element={<RoleAwareLayout />}>
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/settings" element={<ProfilePage />} />
         </Route>
       </Route>
 

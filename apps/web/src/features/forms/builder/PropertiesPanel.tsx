@@ -769,7 +769,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                       name: e.target.value,
                     })
                   }
-                  placeholder="e.g. Submit Application"
+                  placeholder="e.g. Submit Form"
                 />
               </FormField>
             )}

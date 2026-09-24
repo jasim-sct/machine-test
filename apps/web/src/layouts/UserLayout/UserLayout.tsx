@@ -1,23 +1,12 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import { AppShell, Sidebar, Header, ProfileTile, Badge } from '../../components';
+import { AppShell, WorkspaceHeader } from '../../components';
 
 export const UserLayout: React.FC = () => {
   return (
-    <AppShell
-      sidebar={<Sidebar />}
-      header={
-        <Header
-          title={
-            <Badge variant="neutral" pill>
-              Member Portal
-            </Badge>
-          }
-          actions={<ProfileTile />}
-        />
-      }
-    >
+    <AppShell header={<WorkspaceHeader />}>
       <Outlet />
     </AppShell>
   );
 };
+
