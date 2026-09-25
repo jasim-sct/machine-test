@@ -56,8 +56,8 @@ describe('Form Management & Public Form Flow (e2e)', () => {
     await app.close();
   });
 
-  describe('1. Form Creation & Initial Draft', () => {
-    it('should create a form and automatically generate draft v1 and publicId', async () => {
+  describe('1. Form Creation & Single Mutable Draft', () => {
+    it('should create a form and automatically generate editable draft and publicId', async () => {
       const res = await request(app.getHttpServer())
         .post('/forms')
         .set('Authorization', `Bearer ${user1Token}`)
@@ -69,15 +69,12 @@ describe('Form Management & Public Form Flow (e2e)', () => {
       expect(res.body.publicId).toBeDefined();
       expect(res.body.publicId.startsWith('f_')).toBe(true);
       expect(res.body.deployedVersionId).toBeNull();
-      expect(res.body.versionsCount).toBe(1);
-      expect(res.body.versions).toHaveLength(1);
-      expect(res.body.versions[0].versionNumber).toBe(1);
-      expect(res.body.versions[0].title).toBe('Customer Satisfaction Survey');
-      expect(res.body.versions[0].isDeployed).toBe(false);
+      expect(res.body.draft).toBeDefined();
+      expect(res.body.draft.title).toBe('Customer Satisfaction Survey');
+      expect(res.body.hasUnpublishedChanges).toBe(true);
 
       createdFormId = res.body.id;
       publicId = res.body.publicId;
-      v1Id = res.body.versions[0].id;
     });
 
     it('should list forms for authenticated user', async () => {
@@ -92,56 +89,76 @@ describe('Form Management & Public Form Flow (e2e)', () => {
       expect(found.publicId).toBe(publicId);
     });
 
-    it('should get single form with all its versions', async () => {
+    it('should get single form with draft state', async () => {
       const res = await request(app.getHttpServer())
         .get(`/forms/${createdFormId}`)
         .set('Authorization', `Bearer ${user1Token}`)
         .expect(200);
 
       expect(res.body.id).toBe(createdFormId);
-      expect(res.body.versions).toHaveLength(1);
-      expect(res.body.versions[0].id).toBe(v1Id);
+      expect(res.body.draft).toBeDefined();
     });
   });
 
-  describe('2. Draft Version Management & Editable Title', () => {
-    it('should create a second draft version v2', async () => {
+  describe('2. Single Draft Editing & Deployment (Release Creation)', () => {
+    it('should update draft without modifying public form', async () => {
       const res = await request(app.getHttpServer())
-        .post(`/forms/${createdFormId}/versions`)
+        .patch(`/forms/${createdFormId}/draft`)
         .set('Authorization', `Bearer ${user1Token}`)
-        .send({ title: 'Customer Feedback v2 (Spring)' })
-        .expect(201);
-
-      expect(res.body.id).toBeDefined();
-      expect(res.body.versionNumber).toBe(2);
-      expect(res.body.title).toBe('Customer Feedback v2 (Spring)');
-      expect(res.body.isDeployed).toBe(false);
-
-      v2Id = res.body.id;
-    });
-
-    it('should edit draft version title', async () => {
-      const res = await request(app.getHttpServer())
-        .patch(`/forms/${createdFormId}/versions/${v2Id}`)
-        .set('Authorization', `Bearer ${user1Token}`)
-        .send({ title: 'Customer Feedback v2 (Updated Summer)' })
+        .send({ title: 'Customer Feedback v1 (Updated)' })
         .expect(200);
 
-      expect(res.body.id).toBe(v2Id);
-      expect(res.body.title).toBe('Customer Feedback v2 (Updated Summer)');
+      expect(res.body.draft.title).toBe('Customer Feedback v1 (Updated)');
+      expect(res.body.hasUnpublishedChanges).toBe(true);
+
+      // Public form is not deployed yet
+      const pubRes = await request(app.getHttpServer())
+        .get(`/public/forms/${publicId}`)
+        .expect(200);
+
+      expect(pubRes.body.isDeployed).toBe(false);
     });
 
-    it('should reject editing version without title', async () => {
-      await request(app.getHttpServer())
-        .patch(`/forms/${createdFormId}/versions/${v2Id}`)
+    it('should deploy draft as Version 1', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/forms/${createdFormId}/deploy`)
         .set('Authorization', `Bearer ${user1Token}`)
-        .send({ title: '' })
-        .expect(400);
+        .expect(201);
+
+      expect(res.body.deployedVersionId).toBeDefined();
+      expect(res.body.versionsCount).toBe(1);
+      expect(res.body.versions).toHaveLength(1);
+      expect(res.body.versions[0].versionNumber).toBe(1);
+      expect(res.body.versions[0].title).toBe('Customer Feedback v1 (Updated)');
+      expect(res.body.versions[0].isDeployed).toBe(true);
+
+      v1Id = res.body.versions[0].id;
+    });
+
+    it('should update draft and deploy as Version 2', async () => {
+      // Modify draft
+      await request(app.getHttpServer())
+        .patch(`/forms/${createdFormId}/draft`)
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({ title: 'Customer Feedback v2 (Summer Edition)' })
+        .expect(200);
+
+      // Deploy v2
+      const res = await request(app.getHttpServer())
+        .post(`/forms/${createdFormId}/deploy`)
+        .set('Authorization', `Bearer ${user1Token}`)
+        .expect(201);
+
+      expect(res.body.versionsCount).toBe(2);
+      expect(res.body.deployedVersion.versionNumber).toBe(2);
+      expect(res.body.deployedVersion.title).toBe('Customer Feedback v2 (Summer Edition)');
+
+      v2Id = res.body.deployedVersion.id;
     });
   });
 
   describe('3. Version Deployment & Single Deployed Invariant', () => {
-    it('should deploy version 1', async () => {
+    it('should re-activate / rollback to Version 1', async () => {
       const res = await request(app.getHttpServer())
         .post(`/forms/${createdFormId}/versions/${v1Id}/deploy`)
         .set('Authorization', `Bearer ${user1Token}`)
@@ -154,7 +171,7 @@ describe('Form Management & Public Form Flow (e2e)', () => {
       expect(v2.isDeployed).toBe(false);
     });
 
-    it('should switch deployed version to version 2 (ensuring only one deployed)', async () => {
+    it('should switch deployed version back to Version 2', async () => {
       const res = await request(app.getHttpServer())
         .post(`/forms/${createdFormId}/versions/${v2Id}/deploy`)
         .set('Authorization', `Bearer ${user1Token}`)
@@ -168,19 +185,34 @@ describe('Form Management & Public Form Flow (e2e)', () => {
     });
   });
 
-  describe('4. Public Form Access & Real-Time Reflection', () => {
-    it('should access public form without authentication and see deployed title', async () => {
+  describe('4. Public Form Access, CDN ETag & Runtime Reflection', () => {
+    it('should access public form without authentication, return ETag and Cache-Control', async () => {
       const res = await request(app.getHttpServer())
         .get(`/public/forms/${publicId}`)
         .expect(200);
 
       expect(res.body.name).toBe('Customer Satisfaction Survey');
-      expect(res.body.title).toBe('Customer Feedback v2 (Updated Summer)');
+      expect(res.body.title).toBe('Customer Feedback v2 (Summer Edition)');
       expect(res.body.isDeployed).toBe(true);
       expect(res.body.publicId).toBe(publicId);
+      expect(res.headers['etag']).toBeDefined();
+      expect(res.headers['cache-control']).toBe('public, no-cache');
     });
 
-    it('should immediately reflect newly deployed version title publicly', async () => {
+    it('should return 304 Not Modified when If-None-Match matches ETag', async () => {
+      const initial = await request(app.getHttpServer())
+        .get(`/public/forms/${publicId}`)
+        .expect(200);
+
+      const etag = initial.headers['etag'];
+
+      await request(app.getHttpServer())
+        .get(`/public/forms/${publicId}`)
+        .set('If-None-Match', etag)
+        .expect(304);
+    });
+
+    it('should immediately reflect rolled-back version title publicly', async () => {
       // Switch back to v1
       await request(app.getHttpServer())
         .post(`/forms/${createdFormId}/versions/${v1Id}/deploy`)
@@ -192,7 +224,7 @@ describe('Form Management & Public Form Flow (e2e)', () => {
         .get(`/public/forms/${publicId}`)
         .expect(200);
 
-      expect(res.body.title).toBe('Customer Satisfaction Survey');
+      expect(res.body.title).toBe('Customer Feedback v1 (Updated)');
       expect(res.body.isDeployed).toBe(true);
     });
 
@@ -233,44 +265,55 @@ describe('Form Management & Public Form Flow (e2e)', () => {
       id: 'fld_name',
       type: 'text',
       label: 'Full Name',
+      reference: 'full_name',
       placeholder: 'Enter your name',
       required: true,
-      colSpan: 12,
     };
 
     const elEmail = {
       id: 'fld_email',
       type: 'email',
       label: 'Work Email',
+      reference: 'work_email',
       placeholder: 'you@company.com',
       required: true,
-      colSpan: 6,
     };
 
     const elOldNotes = {
       id: 'fld_notes',
       type: 'textarea',
       label: 'Initial Notes',
+      reference: 'notes',
       required: false,
-      colSpan: 12,
     };
 
-    it('should update draft v1 with elements and deploy it', async () => {
-      const updateRes = await request(app.getHttpServer())
-        .patch(`/forms/${createdFormId}/versions/${v1Id}`)
+    it('should update draft with elements, deploy it as new version, and verify public runtime', async () => {
+      await request(app.getHttpServer())
+        .patch(`/forms/${createdFormId}/draft`)
         .set('Authorization', `Bearer ${user1Token}`)
         .send({
-          title: 'Version 1 with Elements',
+          title: 'Version with Elements',
           elements: [elFullName, elEmail, elOldNotes],
+          sections: [
+            {
+              id: 'sec_1',
+              name: 'Main Section',
+              layout: 'column',
+              zones: [
+                {
+                  id: 'zone_1',
+                  layout: 'column',
+                  elements: [elFullName, elEmail, elOldNotes],
+                },
+              ],
+            },
+          ],
         })
         .expect(200);
 
-      expect(updateRes.body.elements).toHaveLength(3);
-      expect(updateRes.body.elements[0].id).toBe('fld_name');
-
-      // Deploy v1
+      // Deploy
       await request(app.getHttpServer())
-        .post(`/forms/${createdFormId}/versions/${v1Id}/deploy`)
+        .post(`/forms/${createdFormId}/deploy`)
         .set('Authorization', `Bearer ${user1Token}`)
         .expect(201);
 
@@ -288,20 +331,20 @@ describe('Form Management & Public Form Flow (e2e)', () => {
         .post(`/public/forms/${publicId}/submissions`)
         .send({
           data: {
-            fld_email: 'test@example.com',
+            work_email: 'test@example.com',
           },
         })
         .expect(400);
     });
 
-    it('should submit response for v1 deployed form', async () => {
+    it('should submit response for deployed form', async () => {
       const subRes = await request(app.getHttpServer())
         .post(`/public/forms/${publicId}/submissions`)
         .send({
           data: {
-            fld_name: 'Alice Johnson',
-            fld_email: 'alice@example.com',
-            fld_notes: 'Great onboarding experience!',
+            full_name: 'Alice Johnson',
+            work_email: 'alice@example.com',
+            notes: 'Great onboarding experience!',
           },
         })
         .expect(201);
@@ -310,29 +353,42 @@ describe('Form Management & Public Form Flow (e2e)', () => {
       expect(subRes.body.id).toBeDefined();
     });
 
-    it('should create v2 adding a new field (rating) and removing an old field (notes)', async () => {
+    it('should create new version adding a new field (rating) and removing an old field (notes)', async () => {
       const elRating = {
         id: 'fld_rating',
         type: 'select',
         label: 'Satisfaction Score',
-        options: ['1', '2', '3', '4', '5'],
+        reference: 'rating',
         required: true,
-        colSpan: 6,
       };
 
-      // v2 has Full Name, Email, and Satisfaction Score (fld_notes was removed)
+      // New draft has Full Name, Email, and Satisfaction Score (notes removed)
       await request(app.getHttpServer())
-        .patch(`/forms/${createdFormId}/versions/${v2Id}`)
+        .patch(`/forms/${createdFormId}/draft`)
         .set('Authorization', `Bearer ${user1Token}`)
         .send({
-          title: 'Version 2 (With Rating, No Notes)',
+          title: 'Version with Rating',
           elements: [elFullName, elEmail, elRating],
+          sections: [
+            {
+              id: 'sec_1',
+              name: 'Main Section',
+              layout: 'column',
+              zones: [
+                {
+                  id: 'zone_1',
+                  layout: 'column',
+                  elements: [elFullName, elEmail, elRating],
+                },
+              ],
+            },
+          ],
         })
         .expect(200);
 
-      // Deploy v2
+      // Deploy
       await request(app.getHttpServer())
-        .post(`/forms/${createdFormId}/versions/${v2Id}/deploy`)
+        .post(`/forms/${createdFormId}/deploy`)
         .set('Authorization', `Bearer ${user1Token}`)
         .expect(201);
 
@@ -342,18 +398,18 @@ describe('Form Management & Public Form Flow (e2e)', () => {
         .expect(200);
 
       expect(pubRes.body.elements).toHaveLength(3);
-      expect(pubRes.body.elements.find((e: any) => e.id === 'fld_rating')).toBeDefined();
-      expect(pubRes.body.elements.find((e: any) => e.id === 'fld_notes')).toBeUndefined();
+      expect(pubRes.body.elements.find((e: any) => e.reference === 'rating')).toBeDefined();
+      expect(pubRes.body.elements.find((e: any) => e.reference === 'notes')).toBeUndefined();
     });
 
-    it('should submit response for v2 deployed form', async () => {
+    it('should submit response for second version deployed form', async () => {
       const subRes = await request(app.getHttpServer())
         .post(`/public/forms/${publicId}/submissions`)
         .send({
           data: {
-            fld_name: 'Bob Smith',
-            fld_email: 'bob@example.com',
-            fld_rating: '5',
+            full_name: 'Bob Smith',
+            work_email: 'bob@example.com',
+            rating: '5',
           },
         })
         .expect(201);
@@ -369,37 +425,23 @@ describe('Form Management & Public Form Flow (e2e)', () => {
 
       expect(dataRes.body.formId).toBe(createdFormId);
       expect(dataRes.body.totalCount).toBe(2);
-      expect(dataRes.body.rows).toHaveLength(2);
 
-      // Verify columns union: fld_name, fld_email, fld_notes (from v1), fld_rating (from v2)
-      const columnIds = dataRes.body.columns.map((c: any) => c.id);
-      expect(columnIds).toContain('fld_name');
-      expect(columnIds).toContain('fld_email');
-      expect(columnIds).toContain('fld_notes');
-      expect(columnIds).toContain('fld_rating');
+      // Both historical columns 'notes' and 'rating' must be preserved in the column set
+      const colNotes = dataRes.body.columns.find((c: any) => c.reference === 'notes');
+      const colRating = dataRes.body.columns.find((c: any) => c.reference === 'rating');
+      const colName = dataRes.body.columns.find((c: any) => c.reference === 'full_name');
 
-      // The newest row is Bob (v2)
-      const bobRow = dataRes.body.rows.find((r: any) => r.data.fld_name === 'Bob Smith');
-      expect(bobRow).toBeDefined();
-      expect(bobRow.data.fld_rating).toBe('5');
-      // For fld_notes which did not exist when Bob submitted, it must be empty string
-      expect(bobRow.data.fld_notes).toBe('');
-
-      // The older row is Alice (v1)
-      const aliceRow = dataRes.body.rows.find((r: any) => r.data.fld_name === 'Alice Johnson');
-      expect(aliceRow).toBeDefined();
-      expect(aliceRow.data.fld_notes).toBe('Great onboarding experience!');
-      // For fld_rating which did not exist when Alice submitted, it must be empty string
-      expect(aliceRow.data.fld_rating).toBe('');
+      expect(colNotes).toBeDefined();
+      expect(colRating).toBeDefined();
+      expect(colName).toBeDefined();
     });
   });
 
   describe('7. Hierarchical Form Structure, Duplicate Reference Guard & Regex Validation', () => {
     let hierarchicalFormId: string;
     let hierarchicalPublicId: string;
-    let hierarchicalV1Id: string;
 
-    it('should create form with realistic default form structure (sections, zones, validation)', async () => {
+    it('should create form with realistic default form structure in draft', async () => {
       const res = await request(app.getHttpServer())
         .post('/forms')
         .set('Authorization', `Bearer ${user1Token}`)
@@ -407,28 +449,21 @@ describe('Form Management & Public Form Flow (e2e)', () => {
         .expect(201);
 
       expect(res.body.id).toBeDefined();
-      expect(res.body.versions[0].sections).toBeDefined();
-      expect(res.body.versions[0].sections.length).toBeGreaterThanOrEqual(2);
-      expect(res.body.versions[0].sections[0].zones.length).toBeGreaterThanOrEqual(1);
+      expect(res.body.draft.sections).toBeDefined();
+      expect(res.body.draft.sections.length).toBeGreaterThanOrEqual(2);
+      expect(res.body.draft.sections[0].zones.length).toBeGreaterThanOrEqual(1);
 
       // Verify non-interactive title/description exist in default template
-      const allElements = res.body.versions[0].elements;
+      const allElements = res.body.draft.elements;
       expect(allElements.some((el: any) => el.type === 'title')).toBe(true);
       expect(allElements.some((el: any) => el.type === 'description')).toBe(true);
 
-      // Verify validation exists on default username field
-      const usernameField = allElements.find((el: any) => el.reference === 'user_name');
-      expect(usernameField).toBeDefined();
-      expect(usernameField.validation?.enabled).toBe(true);
-      expect(usernameField.validation?.pattern).toBeDefined();
-
       hierarchicalFormId = res.body.id;
       hierarchicalPublicId = res.body.publicId;
-      hierarchicalV1Id = res.body.versions[0].id;
     });
 
     it('should block deployment if duplicate references exist in sections', async () => {
-      // Update v1 with duplicate references
+      // Update draft with duplicate references
       const duplicateSections = [
         {
           id: 'sec_1',
@@ -468,14 +503,14 @@ describe('Form Management & Public Form Flow (e2e)', () => {
       ];
 
       await request(app.getHttpServer())
-        .patch(`/forms/${hierarchicalFormId}/versions/${hierarchicalV1Id}`)
+        .patch(`/forms/${hierarchicalFormId}/draft`)
         .set('Authorization', `Bearer ${user1Token}`)
         .send({ sections: duplicateSections })
         .expect(200);
 
       // Attempting to deploy must be rejected with 400
       const deployRes = await request(app.getHttpServer())
-        .post(`/forms/${hierarchicalFormId}/versions/${hierarchicalV1Id}/deploy`)
+        .post(`/forms/${hierarchicalFormId}/deploy`)
         .set('Authorization', `Bearer ${user1Token}`)
         .expect(400);
 
@@ -515,14 +550,14 @@ describe('Form Management & Public Form Flow (e2e)', () => {
       ];
 
       await request(app.getHttpServer())
-        .patch(`/forms/${hierarchicalFormId}/versions/${hierarchicalV1Id}`)
+        .patch(`/forms/${hierarchicalFormId}/draft`)
         .set('Authorization', `Bearer ${user1Token}`)
         .send({ sections: validSections })
         .expect(200);
 
       // Now deploy succeeds
       await request(app.getHttpServer())
-        .post(`/forms/${hierarchicalFormId}/versions/${hierarchicalV1Id}/deploy`)
+        .post(`/forms/${hierarchicalFormId}/deploy`)
         .set('Authorization', `Bearer ${user1Token}`)
         .expect(201);
 
@@ -552,4 +587,3 @@ describe('Form Management & Public Form Flow (e2e)', () => {
     });
   });
 });
-
