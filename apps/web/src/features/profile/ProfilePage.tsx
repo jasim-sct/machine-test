@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../app/providers/AuthProvider';
+import { UserStatus } from '@saas/shared';
 import {
   ContentContainer,
   FormField,
@@ -7,7 +8,6 @@ import {
   Input,
   Button,
   Alert,
-  UserStatusBadge,
   Badge,
   Avatar,
 } from '../../components';
@@ -59,8 +59,6 @@ export const ProfilePage: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Misc
-  const [copiedId, setCopiedId] = useState(false);
 
   const enterEdit = useCallback(() => {
     if (!user) return;
@@ -111,13 +109,6 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  const handleCopyId = () => {
-    if (!user.id) return;
-    navigator.clipboard.writeText(user.id);
-    setCopiedId(true);
-    setTimeout(() => setCopiedId(false), 2000);
-  };
-
   const formattedDate = user.createdAt
     ? new Date(user.createdAt).toLocaleDateString(undefined, {
         year: 'numeric',
@@ -126,7 +117,8 @@ export const ProfilePage: React.FC = () => {
       })
     : 'N/A';
 
-  const roleName = user.role === 'ADMIN' ? 'Administrator' : 'Member';
+  const isAdmin = user.role === 'ADMIN';
+  const isSuspended = user.status === UserStatus.SUSPENDED;
 
   return (
     <ContentContainer size="narrow" className="profile-page">
@@ -138,10 +130,13 @@ export const ProfilePage: React.FC = () => {
           <div className="profile-overview__info">
             <span className="profile-overview__name">{user.name || 'User'}</span>
             <span className="profile-overview__email">{user.email}</span>
-            <div className="profile-overview__meta">
-              <Badge variant={user.role === 'ADMIN' ? 'info' : 'neutral'}>{roleName}</Badge>
-              <UserStatusBadge status={user.status} />
-            </div>
+            {/* Only show contextual badges — admins see their role; suspended accounts see their status */}
+            {(isAdmin || isSuspended) && (
+              <div className="profile-overview__meta">
+                {isAdmin && <Badge variant="info">Administrator</Badge>}
+                {isSuspended && <Badge variant="danger" withDot>Account Suspended</Badge>}
+              </div>
+            )}
           </div>
         </div>
 
@@ -249,47 +244,21 @@ export const ProfilePage: React.FC = () => {
         </div>
 
         <dl className="profile-fields">
-          <FieldRow label="Role">
-            <Badge variant={user.role === 'ADMIN' ? 'info' : 'neutral'}>{roleName}</Badge>
-          </FieldRow>
+          {/* Show role only when it provides real context — i.e. the user is an admin */}
+          {isAdmin && (
+            <FieldRow label="Role">
+              <Badge variant="info">Administrator</Badge>
+            </FieldRow>
+          )}
 
-          <FieldRow label="Status">
-            <UserStatusBadge status={user.status} />
-          </FieldRow>
+          {/* Only surface account status when it's actionable — i.e. the account is suspended */}
+          {isSuspended && (
+            <FieldRow label="Account Status">
+              <Badge variant="danger" withDot>Suspended</Badge>
+            </FieldRow>
+          )}
 
           <FieldRow label="Member Since">{formattedDate}</FieldRow>
-
-          <div className="profile-field profile-field--block">
-            <dt className="profile-field__label">Account ID</dt>
-            <dd className="profile-field__value">
-              <div className="profile-id-box">
-                <code className="profile-id-box__code">{user.id}</code>
-                <button
-                  type="button"
-                  className="profile-id-box__copy-btn"
-                  onClick={handleCopyId}
-                  title="Copy Account ID"
-                  aria-label="Copy Account ID"
-                >
-                  <span className="material-icon" style={{ fontSize: '14px' }}>
-                    {copiedId ? 'check' : 'content_copy'}
-                  </span>
-                  <span>{copiedId ? 'Copied' : 'Copy'}</span>
-                </button>
-              </div>
-            </dd>
-          </div>
-
-          {user.tenantId && user.tenantId !== user.id && (
-            <div className="profile-field profile-field--block">
-              <dt className="profile-field__label">Organization ID</dt>
-              <dd className="profile-field__value">
-                <div className="profile-id-box">
-                  <code className="profile-id-box__code">{user.tenantId}</code>
-                </div>
-              </dd>
-            </div>
-          )}
         </dl>
       </section>
 
@@ -304,7 +273,7 @@ export const ProfilePage: React.FC = () => {
         <div className="profile-security-list">
           <SecurityRow
             label="Password"
-            description="Secure your account with a strong password"
+            description="Change your password to keep your account secure"
             action={
               <Button variant="secondary" size="small" disabled id="profile-change-password-btn">
                 Change Password
@@ -312,8 +281,8 @@ export const ProfilePage: React.FC = () => {
             }
           />
           <SecurityRow
-            label="Active Sessions"
-            description="Manage where you are currently signed in"
+            label="Sign Out"
+            description="Sign out of your account on this device"
             action={
               <Button
                 variant="secondary"
