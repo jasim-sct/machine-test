@@ -28,10 +28,10 @@ export class User {
   @Prop({ required: true })
   passwordHash: string;
 
-  @Prop({ required: true, enum: Role, default: Role.USER })
+  @Prop({ required: true, enum: Role, default: Role.USER, index: true })
   role: Role;
 
-  @Prop({ required: true, enum: UserStatus, default: UserStatus.ACTIVE })
+  @Prop({ required: true, enum: UserStatus, default: UserStatus.ACTIVE, index: true })
   status: UserStatus;
 
   createdAt?: Date;
@@ -39,3 +39,5 @@ export class User {
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+UserSchema.index({ role: 1, status: 1 });
+UserSchema.index({ createdAt: -1 });

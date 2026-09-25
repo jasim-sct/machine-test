@@ -1,0 +1,34 @@
+import { Global, MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { SecretsService } from './vault/secrets.service';
+import { RedisService } from './redis/redis.service';
+import { StorageService } from './storage/storage.service';
+import { QueueService } from './queue/queue.service';
+import { StructuredLoggerService } from './observability/structured-logger.service';
+import { HealthController } from './observability/health.controller';
+import { CorrelationMiddleware } from './observability/correlation.middleware';
+
+@Global()
+@Module({
+  imports: [ConfigModule],
+  controllers: [HealthController],
+  providers: [
+    SecretsService,
+    RedisService,
+    StorageService,
+    QueueService,
+    StructuredLoggerService,
+  ],
+  exports: [
+    SecretsService,
+    RedisService,
+    StorageService,
+    QueueService,
+    StructuredLoggerService,
+  ],
+})
+export class InfrastructureModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(CorrelationMiddleware).forRoutes('*');
+  }
+}

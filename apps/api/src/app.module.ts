@@ -1,13 +1,18 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import * as path from 'path';
-import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './users/users.module';
-import { AdminModule } from './admin/admin.module';
-import { DashboardModule } from './dashboard/dashboard.module';
-import { EventsModule } from './websocket/events.module';
+
+import { InfrastructureModule } from './infrastructure/infrastructure.module';
+import { SecretsService } from './infrastructure/vault/secrets.service';
+import { IdentityModule } from './identity/identity.module';
 import { FormsModule } from './forms/forms.module';
+import { RuntimeModule } from './runtime/runtime.module';
+import { SubmissionsModule } from './submissions/submissions.module';
+import { AdministrationModule } from './administration/administration.module';
+import { RealtimeModule } from './realtime/realtime.module';
 
 @Module({
   imports: [
@@ -15,22 +20,33 @@ import { FormsModule } from './forms/forms.module';
       isGlobal: true,
       envFilePath: path.resolve(__dirname, '../.env'),
     }),
+    InfrastructureModule,
     MongooseModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        uri: configService.get<string>(
-          'MONGODB_URI',
-          'mongodb://127.0.0.1:27017/saas_db',
-        ),
+      imports: [InfrastructureModule],
+      useFactory: (secretsService: SecretsService) => ({
+        uri: secretsService.getDatabaseUri(),
       }),
-      inject: [ConfigService],
+      inject: [SecretsService],
     }),
-    AuthModule,
-    UsersModule,
-    AdminModule,
-    DashboardModule,
-    EventsModule,
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000, // 60 seconds
+        limit: 300,  // 300 requests per minute default
+      },
+    ]),
+    IdentityModule,
     FormsModule,
+    RuntimeModule,
+    SubmissionsModule,
+    AdministrationModule,
+    RealtimeModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

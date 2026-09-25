@@ -33,6 +33,7 @@ export class FormVersion {
 
 export const FormVersionSchema = SchemaFactory.createForClass(FormVersion);
 FormVersionSchema.index({ formId: 1, versionNumber: 1 }, { unique: true });
+FormVersionSchema.index({ formId: 1, createdAt: -1 });
 FormVersionSchema.set('toJSON', {
   transform: (_, ret: any) => {
     ret.id = ret._id.toString();

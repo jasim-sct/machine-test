@@ -14,7 +14,7 @@ export class Form {
   @Prop({ required: true, unique: true, index: true })
   publicId: string;
 
-  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'FormVersion', default: null })
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'FormVersion', default: null, index: true })
   deployedVersionId: string | null;
 
   @Prop({
@@ -57,6 +57,7 @@ export class Form {
 }
 
 export const FormSchema = SchemaFactory.createForClass(Form);
+FormSchema.index({ userId: 1, updatedAt: -1 });
 FormSchema.set('toJSON', {
   transform: (_, ret: any) => {
     ret.id = ret._id.toString();

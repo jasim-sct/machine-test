@@ -16,7 +16,7 @@ import { UpdateDraftDto } from './dto/update-draft.dto';
 import { CreateVersionDto } from './dto/create-version.dto';
 import { UpdateVersionDto } from './dto/update-version.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
-import { FormDto, FormVersionDto, FormDataViewDto } from '@saas/shared';
+import { FormDto, FormVersionDto } from '@saas/shared';
 
 @Controller('forms')
 @UseGuards(JwtAuthGuard, ActiveUserGuard)
@@ -68,14 +68,6 @@ export class FormsController {
     @Body() dto: UpdateSettingsDto,
   ): Promise<FormDto> {
     return this.formsService.updateSettings(userId, formId, dto);
-  }
-
-  @Get(':id/data')
-  getDataView(
-    @CurrentUser('id') userId: string,
-    @Param('id') formId: string,
-  ): Promise<FormDataViewDto> {
-    return this.formsService.getDataView(userId, formId);
   }
 
   @Post(':id/versions')

@@ -20,6 +20,7 @@ export class FormSubmission {
 
 export const FormSubmissionSchema = SchemaFactory.createForClass(FormSubmission);
 FormSubmissionSchema.index({ formId: 1, createdAt: -1 });
+FormSubmissionSchema.index({ formId: 1, versionId: 1 });
 FormSubmissionSchema.set('toJSON', {
   transform: (_, ret: any) => {
     ret.id = ret._id.toString();
