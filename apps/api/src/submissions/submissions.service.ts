@@ -154,12 +154,44 @@ export class SubmissionsService {
     // Derive tenant identity server-side from form
     const tenantId = form.tenantId || form.userId.toString();
 
+    // Canonicalize submitted data to eliminate redundant duplicated keys (e.g. element ID when reference is present)
+    const canonicalData: Record<string, any> = {};
+    for (const el of elements) {
+      const isDataField =
+        el.type !== 'button' &&
+        el.type !== 'title' &&
+        el.type !== 'description' &&
+        el.type !== 'divider' &&
+        el.type !== 'spacer' &&
+        el.type !== 'alert';
+
+      if (!isDataField) continue;
+
+      const fieldKey = el.reference || el.id;
+      const rawVal = submittedData[fieldKey] !== undefined ? submittedData[fieldKey] : submittedData[el.id];
+      if (rawVal !== undefined) {
+        canonicalData[fieldKey] = rawVal;
+      }
+    }
+
+    // Preserve any genuine custom dynamic fields that don't clash with mapped element IDs
+    for (const [key, value] of Object.entries(submittedData)) {
+      if (!(key in canonicalData)) {
+        const isElementIdOfMappedRef = elements.some(
+          (el) => el.id === key && el.reference && el.reference !== el.id,
+        );
+        if (!isElementIdOfMappedRef) {
+          canonicalData[key] = value;
+        }
+      }
+    }
+
     // Persist immutable submission record linked permanently to the versionId and tenantId
     const submission = await this.formSubmissionModel.create({
       formId: form._id,
       tenantId,
       versionId: deployedVersion._id,
-      data: submittedData,
+      data: canonicalData,
     });
 
     // Record submission activity on Form document
@@ -184,7 +216,7 @@ export class SubmissionsService {
         url: settings.webhookUrl,
         formId: form._id.toString(),
         submissionId: submission._id.toString(),
-        data: submittedData,
+        data: canonicalData,
       });
     }
 
@@ -208,7 +240,7 @@ export class SubmissionsService {
       throw new ForbiddenException('You do not have access to this form data');
     }
 
-    // Query all versions ever deployed for this form
+    // Query all versions ever deployed for this form in ascending order
     const allVersions = await this.formVersionModel
       .find({ formId: form._id })
       .sort({ versionNumber: 1 })
@@ -230,24 +262,44 @@ export class SubmissionsService {
       versionMap.set(v._id.toString(), v.versionNumber);
     }
 
-    // Build cumulative column set across all versions ever deployed
-    const columnsMap = new Map<string, FormDataColumnDto>();
+    // Unified Column Accumulator with alias awareness
+    interface InternalColumn {
+      id: string;
+      label: string;
+      type: any;
+      reference?: string;
+      aliases: Set<string>;
+    }
 
-    for (const v of allVersions) {
-      const allElements: FormElement[] = [];
-      if (v.sections && v.sections.length > 0) {
-        for (const s of v.sections as FormSection[]) {
+    const columns: InternalColumn[] = [];
+    const keyToColumnMap = new Map<string, InternalColumn>();
+
+    // Helper to extract form elements from any schema container (version or draft)
+    const extractElements = (container: any): FormElement[] => {
+      const els: FormElement[] = [];
+      if (container?.sections && container.sections.length > 0) {
+        for (const s of container.sections as FormSection[]) {
           for (const z of s.zones || []) {
             for (const el of z.elements || []) {
-              allElements.push(el);
+              els.push(el);
             }
           }
         }
-      } else if (v.elements) {
-        allElements.push(...v.elements);
+      } else if (container?.elements && container.elements.length > 0) {
+        els.push(...container.elements);
       }
+      return els;
+    };
 
-      for (const el of allElements) {
+    // Include historical versions first, then latest draft to capture field definitions
+    const schemaContainers: any[] = [...allVersions];
+    if (form.draft) {
+      schemaContainers.push(form.draft);
+    }
+
+    for (const container of schemaContainers) {
+      const els = extractElements(container);
+      for (const el of els) {
         const isDataField =
           el.type !== 'button' &&
           el.type !== 'title' &&
@@ -258,35 +310,73 @@ export class SubmissionsService {
 
         if (!isDataField) continue;
 
-        const key = el.reference || el.id;
-        if (!columnsMap.has(key)) {
-          columnsMap.set(key, {
-            id: key,
-            label: el.label || el.name || key,
+        // Check if an existing column matches by element ID or reference
+        let existingCol: InternalColumn | undefined;
+        if (el.id && keyToColumnMap.has(el.id)) {
+          existingCol = keyToColumnMap.get(el.id);
+        } else if (el.reference && keyToColumnMap.has(el.reference)) {
+          existingCol = keyToColumnMap.get(el.reference);
+        }
+
+        if (existingCol) {
+          // Merge element IDs and references as aliases for the same field
+          if (el.id) {
+            existingCol.aliases.add(el.id);
+            keyToColumnMap.set(el.id, existingCol);
+          }
+          if (el.reference) {
+            existingCol.aliases.add(el.reference);
+            keyToColumnMap.set(el.reference, existingCol);
+            existingCol.reference = el.reference;
+            existingCol.id = el.reference;
+          }
+          if (el.label || el.name) {
+            existingCol.label = el.label || el.name || existingCol.label;
+          }
+          existingCol.type = el.type;
+        } else {
+          const colId = el.reference || el.id;
+          const newCol: InternalColumn = {
+            id: colId,
+            label: el.label || el.name || colId,
             type: el.type,
-            reference: el.reference || key,
-          });
+            reference: el.reference || undefined,
+            aliases: new Set<string>(),
+          };
+          if (el.id) {
+            newCol.aliases.add(el.id);
+            keyToColumnMap.set(el.id, newCol);
+          }
+          if (el.reference) {
+            newCol.aliases.add(el.reference);
+            keyToColumnMap.set(el.reference, newCol);
+          }
+          newCol.aliases.add(colId);
+          keyToColumnMap.set(colId, newCol);
+          columns.push(newCol);
         }
       }
     }
 
-    // Inspect submitted data for any extra dynamic fields
+    // Inspect submitted data for any extra dynamic fields that are genuinely unmapped
     for (const sub of submissions) {
       const data = sub.data || {};
       for (const rawKey of Object.keys(data)) {
-        if (!columnsMap.has(rawKey)) {
-          columnsMap.set(rawKey, {
+        if (!keyToColumnMap.has(rawKey)) {
+          const extraCol: InternalColumn = {
             id: rawKey,
             label: rawKey,
             type: 'text',
             reference: rawKey,
-          });
+            aliases: new Set([rawKey]),
+          };
+          columns.push(extraCol);
+          keyToColumnMap.set(rawKey, extraCol);
         }
       }
     }
 
-    const columns = Array.from(columnsMap.values());
-
+    // Build unified rows with alias resolution
     const rows: FormDataRowDto[] = submissions.map((sub) => {
       const subJson = sub.toJSON();
       const versionNum = versionMap.get(sub.versionId?.toString()) || 1;
@@ -294,11 +384,20 @@ export class SubmissionsService {
 
       const rowData: Record<string, any> = {};
       for (const col of columns) {
-        let val = data[col.reference || col.id];
-        if (val === undefined && col.id) {
-          val = data[col.id];
+        // Resolve value checking primary ID, reference, and all known aliases
+        let val = data[col.id];
+        if ((val === undefined || val === null || val === '') && col.reference) {
+          val = data[col.reference];
         }
-        rowData[col.id] = val !== undefined ? val : '';
+        if (val === undefined || val === null || val === '') {
+          for (const alias of col.aliases) {
+            if (data[alias] !== undefined && data[alias] !== null && data[alias] !== '') {
+              val = data[alias];
+              break;
+            }
+          }
+        }
+        rowData[col.id] = val !== undefined && val !== null ? val : '';
       }
 
       return {
@@ -309,11 +408,18 @@ export class SubmissionsService {
       };
     });
 
+    const resultColumns: FormDataColumnDto[] = columns.map((col) => ({
+      id: col.id,
+      label: col.label,
+      type: col.type,
+      reference: col.reference,
+    }));
+
     return {
       formId: form._id.toString(),
       formName: form.name,
       totalCount: rows.length,
-      columns,
+      columns: resultColumns,
       rows,
     };
   }

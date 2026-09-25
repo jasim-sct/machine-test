@@ -149,16 +149,13 @@ export const PublicFormPage: React.FC = () => {
     setSubmitting(true);
     setError(null);
 
-    // Prepare submission payload sending values under both reference and ID for total compatibility
+    // Prepare canonical submission payload using element reference or ID
     const submissionPayload: Record<string, any> = {};
     for (const el of allFields) {
       const primaryKey = el.reference || el.id;
       const val = formData[primaryKey] !== undefined ? formData[primaryKey] : formData[el.id];
       if (val !== undefined) {
         submissionPayload[primaryKey] = val;
-        if (el.reference && el.id !== el.reference) {
-          submissionPayload[el.id] = val;
-        }
       }
     }
 

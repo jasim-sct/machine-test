@@ -56,10 +56,25 @@ export const VersionComparisonModal: React.FC<VersionComparisonModalProps> = ({
     const map = new Map<string, FormElement>();
     if (!version) return map;
 
-    (version.elements || []).forEach((el) => {
-      // Key by reference or element ID
+    const allElements: FormElement[] = [];
+    if (version.sections && version.sections.length > 0) {
+      for (const s of version.sections) {
+        for (const z of s.zones || []) {
+          for (const el of z.elements || []) {
+            allElements.push(el);
+          }
+        }
+      }
+    } else if (version.elements && version.elements.length > 0) {
+      allElements.push(...version.elements);
+    }
+
+    allElements.forEach((el) => {
       const key = (el.reference || el.id).trim().toLowerCase();
       map.set(key, el);
+      if (el.id) {
+        map.set(el.id.trim().toLowerCase(), el);
+      }
     });
     return map;
   };

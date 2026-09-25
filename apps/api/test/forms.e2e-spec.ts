@@ -1,3 +1,4 @@
+/// <reference types="jest" />
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 const request = require('supertest');
@@ -434,6 +435,61 @@ describe('Form Management & Public Form Flow (e2e)', () => {
       expect(colNotes).toBeDefined();
       expect(colRating).toBeDefined();
       expect(colName).toBeDefined();
+    });
+
+    it('should eliminate duplicated columns when submission contains both element ID and reference', async () => {
+      // Submit with duplicate ID keys as old clients or manual API calls might do
+      await request(app.getHttpServer())
+        .post(`/public/forms/${publicId}/submissions`)
+        .send({
+          data: {
+            full_name: 'Charlie Brown',
+            fld_name: 'Charlie Brown',
+            work_email: 'charlie@example.com',
+            fld_email: 'charlie@example.com',
+            rating: '4',
+            fld_rating: '4',
+          },
+        })
+        .expect(201);
+
+      const dataRes = await request(app.getHttpServer())
+        .get(`/forms/${createdFormId}/data`)
+        .set('Authorization', `Bearer ${user1Token}`)
+        .expect(200);
+
+      expect(dataRes.body.totalCount).toBe(3);
+
+      // Verify no duplicate columns exist for fld_name, fld_email, or fld_rating
+      const colIdFullName = dataRes.body.columns.find((c: any) => c.id === 'fld_name');
+      const colIdEmail = dataRes.body.columns.find((c: any) => c.id === 'fld_email');
+      const colIdRating = dataRes.body.columns.find((c: any) => c.id === 'fld_rating');
+
+      expect(colIdFullName).toBeUndefined();
+      expect(colIdEmail).toBeUndefined();
+      expect(colIdRating).toBeUndefined();
+
+      // Check the latest row data: it must map to the canonical columns cleanly
+      const latestRow = dataRes.body.rows[0];
+      expect(latestRow.data.full_name).toBe('Charlie Brown');
+      expect(latestRow.data.work_email).toBe('charlie@example.com');
+      expect(latestRow.data.rating).toBe('4');
+
+      // Verify submissionsCount on GET /forms/:id
+      const formDetailRes = await request(app.getHttpServer())
+        .get(`/forms/${createdFormId}`)
+        .set('Authorization', `Bearer ${user1Token}`)
+        .expect(200);
+      expect(formDetailRes.body.submissionsCount).toBe(3);
+
+      // Verify submissionsCount on GET /forms list
+      const formListRes = await request(app.getHttpServer())
+        .get('/forms')
+        .set('Authorization', `Bearer ${user1Token}`)
+        .expect(200);
+      const matchedForm = formListRes.body.find((f: any) => f.id === createdFormId);
+      expect(matchedForm).toBeDefined();
+      expect(matchedForm.submissionsCount).toBe(3);
     });
   });
 

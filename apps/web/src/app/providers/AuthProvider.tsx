@@ -97,6 +97,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAccessToken(null);
       setToken(null);
       setUser(null);
+      // Navigate explicitly so the redirect is immediate rather than waiting
+      // for ProtectedRoute to catch the cleared token on its next render.
+      navigate('/login', { replace: true });
     };
 
     window.addEventListener('saas:account-suspended', onSuspended);

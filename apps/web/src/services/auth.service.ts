@@ -1,4 +1,4 @@
-import { api, setAccessToken } from './api';
+import { api, setAccessToken, getOrStartRefresh } from './api';
 import { AuthResponse, LoginDto, RegisterDto, UpdateProfileDto, UserDto } from '@saas/shared';
 
 export const authService = {
@@ -18,12 +18,17 @@ export const authService = {
     return res;
   },
 
+  // IMPORTANT: goes through the shared single-flight coordinator so that
+  // concurrent mount/initAuth() calls (React StrictMode, HMR re-mounts,
+  // fast page restores) never send more than one /auth/refresh request at a
+  // time with the same HttpOnly cookie — which would trigger reuse detection
+  // and revoke the entire refresh-token family, logging the user out.
   refreshToken: async (): Promise<{ accessToken: string }> => {
-    const res = await api.post<{ accessToken: string }>('/auth/refresh');
-    if (res?.accessToken) {
-      setAccessToken(res.accessToken);
+    const newToken = await getOrStartRefresh();
+    if (!newToken) {
+      throw new Error('Session expired. Please log in again.');
     }
-    return res;
+    return { accessToken: newToken };
   },
 
   logout: async (): Promise<{ message: string }> => {
@@ -42,3 +47,4 @@ export const authService = {
     return api.patch<UserDto>('/users/me', data);
   },
 };
+

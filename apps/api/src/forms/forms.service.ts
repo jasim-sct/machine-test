@@ -10,6 +10,7 @@ import { Model, Types } from 'mongoose';
 import { randomBytes } from 'crypto';
 import { Form, FormDocument } from './schemas/form.schema';
 import { FormVersion, FormVersionDocument } from './schemas/form-version.schema';
+import { FormSubmission, FormSubmissionDocument } from './schemas/form-submission.schema';
 import { CreateFormDto } from './dto/create-form.dto';
 import { UpdateDraftDto } from './dto/update-draft.dto';
 import { CreateVersionDto } from './dto/create-version.dto';
@@ -32,6 +33,7 @@ export class FormsService {
   constructor(
     @InjectModel(Form.name) private readonly formModel: Model<FormDocument>,
     @InjectModel(FormVersion.name) private readonly formVersionModel: Model<FormVersionDocument>,
+    @InjectModel(FormSubmission.name) private readonly formSubmissionModel: Model<FormSubmissionDocument>,
     private readonly auditService: AuditService,
   ) {}
 
@@ -173,11 +175,25 @@ export class FormsService {
       .sort({ updatedAt: -1 })
       .exec();
 
+    if (forms.length === 0) {
+      return [];
+    }
+
+    const formIds = forms.map((f) => f._id);
+    const submissionCounts = await this.formSubmissionModel.aggregate([
+      { $match: { formId: { $in: formIds } } },
+      { $group: { _id: '$formId', count: { $sum: 1 } } },
+    ]);
+    const submissionCountMap = new Map<string, number>(
+      submissionCounts.map((s: any) => [s._id.toString(), s.count]),
+    );
+
     const results: FormDto[] = [];
 
     for (const form of forms) {
       const formJson = form.toJSON();
       const versionsCount = await this.formVersionModel.countDocuments({ formId: form._id });
+      const submissionsCount = submissionCountMap.get(form._id.toString()) || 0;
 
       let deployedVersion: FormVersionDto | null = null;
       if (form.deployedVersionId) {
@@ -213,7 +229,7 @@ export class FormsService {
         deployedVersionId: form.deployedVersionId ? form.deployedVersionId.toString() : null,
         deployedVersion,
         versionsCount,
-        submissionsCount: 0,
+        submissionsCount,
         settings: form.settings,
         deployments: form.deployments || [],
         activities: form.activities || [],
@@ -247,6 +263,8 @@ export class FormsService {
       .find({ formId: form._id })
       .sort({ versionNumber: 1 })
       .exec();
+
+    const submissionsCount = await this.formSubmissionModel.countDocuments({ formId: form._id });
 
     const draft = this.ensureDraft(form, versions);
     if (!form.draft) {
@@ -298,7 +316,7 @@ export class FormsService {
       deployedVersion: deployedVersionDto,
       versions: versionDtos,
       versionsCount: versionDtos.length,
-      submissionsCount: 0,
+      submissionsCount,
       settings: form.settings,
       deployments: form.deployments || [],
       activities: form.activities || [],
