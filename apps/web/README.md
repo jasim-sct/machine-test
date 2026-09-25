@@ -29,5 +29,5 @@ apps/web/src/
 ---
 
 ## 2. Invariants & Rules
-- Keep Form Editor ([`FormCanvasHierarchical.tsx`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/web/src/features/forms/builder/FormCanvasHierarchical.tsx)) and Public Form Runtime ([`PublicFormView.tsx`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/web/src/features/forms/public/PublicFormView.tsx)) decoupled.
+- Keep Form Editor (`apps/web/src/features/forms/builder/FormCanvasHierarchical.tsx`) and Public Form Runtime (`apps/web/src/features/forms/public/PublicFormView.tsx`) decoupled.
 - Form element containers must enforce `maxWidth: 100%` and `boxSizing: border-box`.

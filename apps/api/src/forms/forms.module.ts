@@ -5,7 +5,6 @@ import { FormVersion, FormVersionSchema } from './schemas/form-version.schema';
 import { FormSubmission, FormSubmissionSchema } from './schemas/form-submission.schema';
 import { FormsService } from './forms.service';
 import { FormsController } from './forms.controller';
-import { PublicFormsController } from './public-forms.controller';
 
 @Module({
   imports: [
@@ -15,8 +14,8 @@ import { PublicFormsController } from './public-forms.controller';
       { name: FormSubmission.name, schema: FormSubmissionSchema },
     ]),
   ],
-  controllers: [FormsController, PublicFormsController],
+  controllers: [FormsController],
   providers: [FormsService],
-  exports: [FormsService],
+  exports: [FormsService, MongooseModule],
 })
 export class FormsModule {}

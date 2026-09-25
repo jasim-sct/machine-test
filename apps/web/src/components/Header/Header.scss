@@ -6,9 +6,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  position: sticky;
-  top: 0;
-  z-index: 100;
+  flex-shrink: 0;  // Never shrink — always occupies its full height in the flex column
 
   &__left {
     display: flex;

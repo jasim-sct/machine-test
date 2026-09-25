@@ -1,8 +1,8 @@
 # Engineering: Frontend Architecture
 
 > **Scope**: React 19 architecture, routing, state management, and design system components.  
-> **Source of Truth**: [`apps/web/src/`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/web/src/).  
-> **Last Verified**: 2026-09-24
+> **Source of Truth**: `apps/web/src/`.  
+> **Last Verified**: 2026-09-25
 
 ---
 

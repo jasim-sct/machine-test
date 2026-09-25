@@ -8,6 +8,9 @@ export class FormSubmission {
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Form', required: true, index: true })
   formId: string;
 
+  @Prop({ type: String, required: true, index: true })
+  tenantId: string;
+
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'FormVersion', required: true, index: true })
   versionId: string;
 
@@ -20,6 +23,8 @@ export class FormSubmission {
 
 export const FormSubmissionSchema = SchemaFactory.createForClass(FormSubmission);
 FormSubmissionSchema.index({ formId: 1, createdAt: -1 });
+FormSubmissionSchema.index({ tenantId: 1, formId: 1, createdAt: -1 });
+FormSubmissionSchema.index({ tenantId: 1, formId: 1, versionId: 1 });
 FormSubmissionSchema.set('toJSON', {
   transform: (_, ret: any) => {
     ret.id = ret._id.toString();

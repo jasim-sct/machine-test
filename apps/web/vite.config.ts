@@ -7,4 +7,16 @@ export default defineConfig({
     port: 5173,
     host: true,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+        },
+        assetFileNames: 'assets/[name].[hash].[ext]',
+        chunkFileNames: 'assets/[name].[hash].js',
+        entryFileNames: 'assets/[name].[hash].js',
+      },
+    },
+  },
 });

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+const cookieParser = require('cookie-parser');
 const request = require('supertest');
 import { AppModule } from '../src/app.module';
 import { Role, UserStatus } from '@saas/shared';
@@ -16,6 +17,7 @@ describe('SaaS Full-Stack API (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.use(cookieParser());
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -268,6 +270,119 @@ describe('SaaS Full-Stack API (e2e)', () => {
 
       expect(res.body.accessToken).toBeDefined();
       expect(res.body.user.status).toBe(UserStatus.ACTIVE);
+    });
+  });
+
+  describe('3. Cookie-Based Refresh Tokens & Atomic Rotation Lifecycle', () => {
+    let refreshCookie: string;
+    let rotatedCookie: string;
+    let testUserToken: string;
+
+    it('should set an HttpOnly refreshToken cookie upon login', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: 'admin@saas.local',
+          password: 'AdminPassword123!',
+        })
+        .expect(200);
+
+      const cookies = res.headers['set-cookie'];
+      expect(cookies).toBeDefined();
+      const refCookie = cookies.find((c: string) => c.startsWith('refreshToken='));
+      expect(refCookie).toBeDefined();
+      expect(refCookie).toContain('HttpOnly');
+      expect(refCookie).toContain('Path=/auth');
+
+      refreshCookie = refCookie.split(';')[0];
+      testUserToken = res.body.accessToken;
+    });
+
+    it('should rotate token and set new cookie via POST /auth/refresh', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .set('Cookie', [refreshCookie])
+        .expect(200);
+
+      expect(res.body.accessToken).toBeDefined();
+      // Raw refresh token must NOT be in JSON body
+      expect(res.body.refreshToken).toBeUndefined();
+
+      const cookies = res.headers['set-cookie'];
+      expect(cookies).toBeDefined();
+      const newRefCookie = cookies.find((c: string) => c.startsWith('refreshToken='));
+      expect(newRefCookie).toBeDefined();
+      rotatedCookie = newRefCookie.split(';')[0];
+      expect(rotatedCookie).not.toEqual(refreshCookie);
+    });
+
+    it('should reject reuse of already-consumed refresh token and invalidate family', async () => {
+      // Present the old already-consumed refresh token
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .set('Cookie', [refreshCookie])
+        .expect(401);
+
+      // Now the rotated cookie should also be rejected because the family was revoked upon reuse detection!
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .set('Cookie', [rotatedCookie])
+        .expect(401);
+    });
+
+    it('should clear refresh cookie on logout', async () => {
+      // First log in to get a fresh cookie
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: 'admin@saas.local',
+          password: 'AdminPassword123!',
+        })
+        .expect(200);
+
+      const loginCookies = loginRes.headers['set-cookie'];
+      const activeCookie = loginCookies.find((c: string) => c.startsWith('refreshToken=')).split(';')[0];
+
+      const res = await request(app.getHttpServer())
+        .post('/auth/logout')
+        .set('Cookie', [activeCookie])
+        .expect(200);
+
+      expect(res.body.message).toContain('Logged out successfully');
+      const logoutCookies = res.headers['set-cookie'];
+      expect(logoutCookies).toBeDefined();
+      const clearedCookie = logoutCookies.find((c: string) => c.startsWith('refreshToken='));
+      expect(clearedCookie).toContain('Expires=');
+    });
+
+    it('should immediately invalidate access token on logout-all via tokenVersion', async () => {
+      const loginRes = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({
+          email: 'admin@saas.local',
+          password: 'AdminPassword123!',
+        })
+        .expect(200);
+
+      const tokenBefore = loginRes.body.accessToken;
+
+      // Verify token works
+      await request(app.getHttpServer())
+        .get('/users/me')
+        .set('Authorization', `Bearer ${tokenBefore}`)
+        .expect(200);
+
+      // Call logout-all
+      await request(app.getHttpServer())
+        .post('/auth/logout-all')
+        .set('Authorization', `Bearer ${tokenBefore}`)
+        .expect(200);
+
+      // Previous token must now fail immediately
+      await request(app.getHttpServer())
+        .get('/users/me')
+        .set('Authorization', `Bearer ${tokenBefore}`)
+        .expect(401);
     });
   });
 });

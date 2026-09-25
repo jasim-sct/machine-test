@@ -1,22 +1,29 @@
 # Domain: Identity & Authentication
 
-> **Scope**: User registration, login, JWT issuance, profile management, and account lifecycle.  
-> **Source of Truth**: [`apps/api/src/auth/`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/api/src/auth/) and [`apps/api/src/users/`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/api/src/users/).  
-> **Last Verified**: 2026-09-24
+> **Scope**: User registration, login, JWT issuance, refresh token rotation, session revocation, and profile management.  
+> **Source of Truth**: [`apps/api/src/auth/`](file:///home/sct/dd/multi-tenant-form-builder/apps/api/src/auth/) and [`apps/api/src/users/`](file:///home/sct/dd/multi-tenant-form-builder/apps/api/src/users/).  
+> **Last Verified**: 2026-09-25
 
 ---
 
 ## 1. Entities & Data Model
 
-- **Entity**: `User`
-- **Fields**:
+### Entity: `User`
+* **Schema**: [`apps/api/src/users/schemas/user.schema.ts`](file:///home/sct/dd/multi-tenant-form-builder/apps/api/src/users/schemas/user.schema.ts)
+* **Fields**:
   - `id`: Unique string (ObjectId).
   - `name`: User's full name.
-  - `email`: Normalized lowercase email string (unique index).
+  - `email`: Normalized lowercase string (unique index).
   - `passwordHash`: Bcrypt hash (10 salt rounds, stripped in `.toJSON()`).
   - `role`: `Role.ADMIN` | `Role.USER` (default: `USER`).
   - `status`: `UserStatus.ACTIVE` | `UserStatus.SUSPENDED` (default: `ACTIVE`).
-  - `createdAt`, `updatedAt`: Timestamps.
+  - `tenantId`: Explicit tenant identifier (default: user's `id`).
+  - `permissions`: Fine-grained permission strings (`forms:*`, `submissions:*`, `users:*`).
+  - `tokenVersion`: Monotonically increasing session version counter.
+
+### Entity: `RefreshToken`
+* **Schema**: [`apps/api/src/identity/schemas/refresh-token.schema.ts`](file:///home/sct/dd/multi-tenant-form-builder/apps/api/src/identity/schemas/refresh-token.schema.ts)
+* **Fields**: `userId`, `tenantId`, `tokenHash`, `family`, `isRevoked`, `expiresAt`
 
 ---
 
@@ -24,11 +31,13 @@
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Active: Registration / Seeded
-    Active --> Suspended: Admin suspends user
-    Suspended --> Active: Admin unsuspends user
+    [*] --> Active: Registration (POST /auth/register)
+    Active --> Suspended: Admin suspends (PATCH /admin/users/:id/suspend)
+    Suspended --> Active: Admin unsuspends (PATCH /admin/users/:id/unsuspend)
 ```
 
-- **Registration (`POST /auth/register`)**: Only standard users (`Role.USER`) can be registered via the API.
-- **Login (`POST /auth/login`)**: Verifies password hash and checks that status is `ACTIVE`. Returns JWT `{ accessToken, user }`.
-- **Profile (`PATCH /users/me`)**: Allows active users to update `name` and `email`. Protected fields (`role`, `status`) cannot be modified by users.
+1. **Registration (`POST /auth/register`)**: Provisions active standard user with default user permissions and distinct tenant context.
+2. **Login (`POST /auth/login`)**: Validates credentials with bcrypt, checks `status === 'ACTIVE'`, and issues a 15-minute access token and 7-day refresh token.
+3. **Token Refresh (`POST /auth/refresh`)**: Rotates refresh tokens within token family; detects replay attacks and revokes the compromised family.
+4. **Password Change (`POST /auth/change-password`)**: Updates password hash and increments `tokenVersion`, invalidating all active sessions.
+5. **Logout All (`POST /auth/logout-all`)**: Increments `tokenVersion` to immediately disconnect all devices.

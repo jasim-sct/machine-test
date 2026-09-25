@@ -1,82 +1,112 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../app/providers/AuthProvider';
+import { UserStatus } from '@saas/shared';
 import {
-  PageHeader,
   ContentContainer,
   FormField,
   FormLabel,
   Input,
   Button,
   Alert,
-  UserStatusBadge,
   Badge,
   Avatar,
 } from '../../components';
 import './ProfilePage.scss';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// View-mode field row — label on left, value on right
+// ─────────────────────────────────────────────────────────────────────────────
+interface FieldRowProps {
+  label: string;
+  children: React.ReactNode;
+}
+const FieldRow: React.FC<FieldRowProps> = ({ label, children }) => (
+  <div className="profile-field">
+    <dt className="profile-field__label">{label}</dt>
+    <dd className="profile-field__value profile-field__value--text">{children}</dd>
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Security action row — description on left, action on right
+// ─────────────────────────────────────────────────────────────────────────────
+interface SecurityRowProps {
+  label: string;
+  description: string;
+  action: React.ReactNode;
+}
+const SecurityRow: React.FC<SecurityRowProps> = ({ label, description, action }) => (
+  <div className="profile-security-row">
+    <div className="profile-security-row__text">
+      <span className="profile-security-row__label">{label}</span>
+      <span className="profile-security-row__desc">{description}</span>
+    </div>
+    <div className="profile-security-row__action">{action}</div>
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main page
+// ─────────────────────────────────────────────────────────────────────────────
 export const ProfilePage: React.FC = () => {
   const { user, updateProfile, logout } = useAuth();
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  // Edit state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      setName(user.name || '');
-      setEmail(user.email || '');
-    }
+
+  const enterEdit = useCallback(() => {
+    if (!user) return;
+    setEditName(user.name || '');
+    setEditEmail(user.email || '');
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsEditing(true);
   }, [user]);
+
+  const cancelEdit = useCallback(() => {
+    setIsEditing(false);
+    setErrorMessage(null);
+  }, []);
+
+  // Keep draft in sync if user object updates while not editing
+  useEffect(() => {
+    if (!isEditing && user) {
+      setEditName(user.name || '');
+      setEditEmail(user.email || '');
+    }
+  }, [user, isEditing]);
 
   if (!user) return null;
 
-  const isDirty = name !== (user.name || '') || email !== (user.email || '');
-
-  const handleReset = () => {
-    setName(user.name || '');
-    setEmail(user.email || '');
-    setErrorMessage(null);
-    setSuccessMessage(null);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
-    setSuccessMessage(null);
 
-    if (!name.trim()) {
+    if (!editName.trim()) {
       setErrorMessage('Full name is required');
       return;
     }
-
-    if (!email.trim()) {
+    if (!editEmail.trim()) {
       setErrorMessage('Email address is required');
       return;
     }
 
     setIsSubmitting(true);
-
     try {
-      await updateProfile({
-        name: name.trim(),
-        email: email.trim(),
-      });
-      setSuccessMessage('Profile information updated successfully');
+      await updateProfile({ name: editName.trim(), email: editEmail.trim() });
+      setIsEditing(false);
+      setSuccessMessage('Profile updated successfully');
     } catch (err: any) {
       setErrorMessage(err.message || 'Failed to update profile');
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleCopyId = () => {
-    if (!user.id) return;
-    navigator.clipboard.writeText(user.id);
-    setCopiedId(true);
-    setTimeout(() => setCopiedId(false), 2000);
   };
 
   const formattedDate = user.createdAt
@@ -87,222 +117,202 @@ export const ProfilePage: React.FC = () => {
       })
     : 'N/A';
 
-  return (
-    <ContentContainer size="wide" className="profile-page">
-      {/* Page Header */}
-      <PageHeader
-        title="Profile"
-        description="Manage your personal information, account role, and session credentials."
-      />
+  const isAdmin = user.role === 'ADMIN';
+  const isSuspended = user.status === UserStatus.SUSPENDED;
 
-      {/* Status Alerts */}
+  return (
+    <ContentContainer size="narrow" className="profile-page">
+
+      {/* ── Profile Overview ───────────────────────────────────────────── */}
+      <div className="profile-overview">
+        <div className="profile-overview__identity">
+          <Avatar name={user.name || user.email} size="lg" />
+          <div className="profile-overview__info">
+            <span className="profile-overview__name">{user.name || 'User'}</span>
+            <span className="profile-overview__email">{user.email}</span>
+            {/* Only show contextual badges — admins see their role; suspended accounts see their status */}
+            {(isAdmin || isSuspended) && (
+              <div className="profile-overview__meta">
+                {isAdmin && <Badge variant="info">Administrator</Badge>}
+                {isSuspended && <Badge variant="danger" withDot>Account Suspended</Badge>}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {!isEditing && (
+          <div className="profile-overview__action">
+            <Button variant="secondary" size="small" onClick={enterEdit} id="profile-edit-btn">
+              <span className="material-icon" style={{ fontSize: '15px' }}>edit</span>
+              Edit Profile
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Global status alerts */}
       {successMessage && (
-        <Alert
-          variant="success"
-          id="profile-success-alert"
-          onClose={() => setSuccessMessage(null)}
-        >
+        <Alert variant="success" id="profile-success-alert" onClose={() => setSuccessMessage(null)}>
           {successMessage}
         </Alert>
       )}
 
-      {errorMessage && (
-        <Alert
-          variant="error"
-          id="profile-error-alert"
-          onClose={() => setErrorMessage(null)}
-        >
-          {errorMessage}
-        </Alert>
-      )}
+      <hr className="profile-divider" aria-hidden="true" />
 
-      {/* Main Multi-Column Layout */}
-      <div className="profile-grid">
-        {/* Left Column: Personal Information Form */}
-        <section className="profile-card profile-card--primary" aria-label="Personal Information">
-          <div className="profile-card__header">
-            <h2 className="profile-card__title">Personal Information</h2>
-            <p className="profile-card__subtitle">
-              Update your display name and primary contact address.
-            </p>
-          </div>
+      {/* ── Personal Information ─────────────────────────────────────── */}
+      <section className="profile-section" aria-labelledby="section-personal">
+        <div className="profile-section__header">
+          <h2 className="profile-section__title" id="section-personal">
+            Personal Information
+          </h2>
+        </div>
 
-          {/* User Identity Banner */}
-          <div className="profile-identity">
-            <Avatar name={user.name || user.email} size="lg" />
-            <div className="profile-identity__info">
-              <div className="profile-identity__name-row">
-                <span className="profile-identity__name">{user.name || 'User'}</span>
-                <Badge variant={user.role === 'ADMIN' ? 'info' : 'neutral'}>
-                  {user.role === 'ADMIN' ? 'Administrator' : 'Member'}
-                </Badge>
-              </div>
-              <span className="profile-identity__email">{user.email}</span>
-            </div>
-          </div>
+        {isEditing ? (
+          /* ── Edit mode ─────────────────────────────────────────────── */
+          <form onSubmit={handleUpdate} id="profile-edit-form" noValidate>
+            {errorMessage && (
+              <Alert variant="error" id="profile-error-alert" onClose={() => setErrorMessage(null)}>
+                {errorMessage}
+              </Alert>
+            )}
 
-          {/* Edit Form */}
-          <form onSubmit={handleSubmit} id="profile-edit-form" className="profile-form">
-            <div className="profile-form__fields">
+            <div className="profile-edit-fields">
               <FormField>
-                <FormLabel htmlFor="profile-name" required>
-                  Full Name
-                </FormLabel>
+                <FormLabel htmlFor="profile-name" required>Full Name</FormLabel>
                 <Input
                   id="profile-name"
                   type="text"
-                  value={name}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    setSuccessMessage(null);
-                    setErrorMessage(null);
-                  }}
-                  placeholder="e.g., Jane Doe"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Your full name"
                   required
                   disabled={isSubmitting}
+                  autoFocus
                 />
               </FormField>
 
               <FormField>
-                <FormLabel htmlFor="profile-email" required>
-                  Email Address
-                </FormLabel>
+                <FormLabel htmlFor="profile-email" required>Email Address</FormLabel>
                 <Input
                   id="profile-email"
                   type="email"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setSuccessMessage(null);
-                    setErrorMessage(null);
-                  }}
-                  placeholder="e.g., jane@company.com"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="Your email address"
                   required
                   disabled={isSubmitting}
                 />
               </FormField>
             </div>
 
-            <div className="profile-form__actions">
-              {isDirty && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={handleReset}
-                  disabled={isSubmitting}
-                  id="profile-reset-btn"
-                >
-                  Reset
-                </Button>
-              )}
+            <div className="profile-edit-actions">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={cancelEdit}
+                disabled={isSubmitting}
+                id="profile-cancel-btn"
+              >
+                Cancel
+              </Button>
               <Button
                 type="submit"
                 variant="primary"
                 isLoading={isSubmitting}
-                disabled={!isDirty || isSubmitting}
+                disabled={isSubmitting}
                 id="profile-save-btn"
               >
-                Save Changes
+                Update
               </Button>
             </div>
           </form>
-        </section>
+        ) : (
+          /* ── View mode ─────────────────────────────────────────────── */
+          <dl className="profile-fields">
+            <FieldRow label="Full Name">{user.name || '—'}</FieldRow>
+            <FieldRow label="Email">{user.email}</FieldRow>
+          </dl>
+        )}
+      </section>
 
-        {/* Right Column: Account Information & Security */}
-        <div className="profile-sidebar">
-          {/* Account Details Section */}
-          <section className="profile-card" aria-label="Account Information">
-            <div className="profile-card__header">
-              <h2 className="profile-card__title">Account Details</h2>
-              <p className="profile-card__subtitle">
-                System-managed account attributes and role permissions.
-              </p>
-            </div>
+      <hr className="profile-divider" aria-hidden="true" />
 
-            <div className="profile-details-list">
-              <div className="profile-detail-item">
-                <span className="profile-detail-item__label">Account Role</span>
-                <span className="profile-detail-item__value">
-                  <Badge variant={user.role === 'ADMIN' ? 'info' : 'neutral'}>
-                    {user.role}
-                  </Badge>
-                </span>
-              </div>
-
-              <div className="profile-detail-item">
-                <span className="profile-detail-item__label">Account Status</span>
-                <span className="profile-detail-item__value">
-                  <UserStatusBadge status={user.status} />
-                </span>
-              </div>
-
-              <div className="profile-detail-item">
-                <span className="profile-detail-item__label">Member Since</span>
-                <span className="profile-detail-item__value profile-detail-item__value--text">
-                  {formattedDate}
-                </span>
-              </div>
-
-              <div className="profile-detail-item profile-detail-item--id">
-                <span className="profile-detail-item__label">Account ID</span>
-                <div className="profile-id-box">
-                  <code className="profile-id-box__code">{user.id}</code>
-                  <button
-                    type="button"
-                    className="profile-id-box__copy-btn"
-                    onClick={handleCopyId}
-                    title="Copy Account ID"
-                    aria-label="Copy Account ID"
-                  >
-                    <span className="material-icon" style={{ fontSize: '14px' }}>
-                      {copiedId ? 'check' : 'content_copy'}
-                    </span>
-                    <span>{copiedId ? 'Copied' : 'Copy'}</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Security & Session Actions */}
-          <section className="profile-card" aria-label="Security and Session Actions">
-            <div className="profile-card__header">
-              <h2 className="profile-card__title">Security & Session</h2>
-              <p className="profile-card__subtitle">
-                Authentication status and active workspace session.
-              </p>
-            </div>
-
-            <div className="profile-security-body">
-              <div className="profile-security-info">
-                <div className="profile-security-info__icon">
-                  <span className="material-icon">verified_user</span>
-                </div>
-                <div className="profile-security-info__text">
-                  <span className="profile-security-info__title">Active Authentication</span>
-                  <span className="profile-security-info__desc">
-                    Signed in via secure JWT token session
-                  </span>
-                </div>
-              </div>
-
-              <div className="profile-security-actions">
-                <Button
-                  variant="secondary"
-                  onClick={logout}
-                  id="profile-signout-btn"
-                  style={{ width: '100%', justifyContent: 'center' }}
-                >
-                  <span className="material-icon" style={{ fontSize: '18px', marginRight: '6px' }}>
-                    logout
-                  </span>
-                  Sign Out of Session
-                </Button>
-              </div>
-            </div>
-          </section>
+      {/* ── Account ──────────────────────────────────────────────────── */}
+      <section className="profile-section" aria-labelledby="section-account">
+        <div className="profile-section__header">
+          <h2 className="profile-section__title" id="section-account">Account</h2>
         </div>
-      </div>
+
+        <dl className="profile-fields">
+          {/* Show role only when it provides real context — i.e. the user is an admin */}
+          {isAdmin && (
+            <FieldRow label="Role">
+              <Badge variant="info">Administrator</Badge>
+            </FieldRow>
+          )}
+
+          {/* Only surface account status when it's actionable — i.e. the account is suspended */}
+          {isSuspended && (
+            <FieldRow label="Account Status">
+              <Badge variant="danger" withDot>Suspended</Badge>
+            </FieldRow>
+          )}
+
+          <FieldRow label="Member Since">{formattedDate}</FieldRow>
+        </dl>
+      </section>
+
+      <hr className="profile-divider" aria-hidden="true" />
+
+      {/* ── Security ─────────────────────────────────────────────────── */}
+      <section className="profile-section" aria-labelledby="section-security">
+        <div className="profile-section__header">
+          <h2 className="profile-section__title" id="section-security">Security</h2>
+        </div>
+
+        <div className="profile-security-list">
+          <SecurityRow
+            label="Password"
+            description="Change your password to keep your account secure"
+            action={
+              <Button variant="secondary" size="small" disabled id="profile-change-password-btn">
+                Change Password
+              </Button>
+            }
+          />
+          <SecurityRow
+            label="Sign Out"
+            description="Sign out of your account on this device"
+            action={
+              <Button
+                variant="secondary"
+                size="small"
+                onClick={logout}
+                id="profile-signout-btn"
+              >
+                <span className="material-icon" style={{ fontSize: '15px' }}>logout</span>
+                Sign Out
+              </Button>
+            }
+          />
+        </div>
+      </section>
+
+      <hr className="profile-divider" aria-hidden="true" />
+
+      {/* ── Preferences ──────────────────────────────────────────────── */}
+      <section className="profile-section profile-section--last" aria-labelledby="section-preferences">
+        <div className="profile-section__header">
+          <h2 className="profile-section__title" id="section-preferences">Preferences</h2>
+        </div>
+
+        <dl className="profile-fields">
+          <FieldRow label="Language">English (US)</FieldRow>
+          <FieldRow label="Timezone">{Intl.DateTimeFormat().resolvedOptions().timeZone}</FieldRow>
+          <FieldRow label="Notifications">Enabled</FieldRow>
+        </dl>
+      </section>
+
     </ContentContainer>
   );
 };

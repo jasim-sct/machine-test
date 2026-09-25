@@ -14,5 +14,5 @@ Use standard **stateless JWT tokens** issued on login/registration, combined wit
 - **Negative**: Adds a fast indexed MongoDB `findById` read query on each authenticated request.
 
 ## Related Areas
-- [`apps/api/src/auth/`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/api/src/auth/)
-- [`apps/api/src/common/guards/active-user.guard.ts`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/api/src/common/guards/active-user.guard.ts)
+- `apps/api/src/auth/`
+- `apps/api/src/common/guards/active-user.guard.ts`

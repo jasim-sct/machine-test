@@ -1,8 +1,8 @@
 # Contributing Guidelines
 
 > **Scope**: Developer contribution workflow, code formatting standards, branch management, and PR validation rules.  
-> **Source of Truth**: [`package.json`](file:///c:/Users/Muhammed%20Jasim/machine-test/package.json) scripts and workspace configuration.  
-> **Last Verified**: 2026-09-24
+> **Source of Truth**: `package.json` scripts and workspace configuration.  
+> **Last Verified**: 2026-09-25
 
 ---
 

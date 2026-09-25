@@ -15,5 +15,5 @@ Use **MongoDB** with **Mongoose** (`@nestjs/mongoose`) as the primary document s
 - **Note on Dead Artifacts**: The repository contains a legacy `apps/api/prisma/schema.prisma` file which is not used or connected to the runtime.
 
 ## Related Areas
-- [`apps/api/src/forms/schemas/`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/api/src/forms/schemas/)
-- [`apps/api/src/users/schemas/`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/api/src/users/schemas/)
+- `apps/api/src/forms/schemas/`
+- `apps/api/src/users/schemas/`

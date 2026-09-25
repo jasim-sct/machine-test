@@ -37,7 +37,6 @@ export const DataSection: React.FC<DataSectionProps> = ({ form }) => {
   // Selected Record Detail Modal
   const [selectedRecord, setSelectedRecord] = useState<FormDataRowDto | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [copiedJson, setCopiedJson] = useState(false);
 
   const loadData = async () => {
     try {
@@ -180,12 +179,6 @@ export const DataSection: React.FC<DataSectionProps> = ({ form }) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
-
-  const copyRecordJson = (data: Record<string, any>) => {
-    navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-    setCopiedJson(true);
-    setTimeout(() => setCopiedJson(false), 2000);
   };
 
   if (loading) {
@@ -544,24 +537,7 @@ export const DataSection: React.FC<DataSectionProps> = ({ form }) => {
         onClose={() => setIsDetailOpen(false)}
         title={selectedRecord ? `Submission Record Details` : 'Record Details'}
         footer={
-          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-            <Button
-              variant="secondary"
-              onClick={() => selectedRecord && copyRecordJson(selectedRecord.data)}
-              id="copy-record-json-btn"
-            >
-              {copiedJson ? (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  <span className="material-icon" style={{ fontSize: '14px' }}>check</span>
-                  JSON Copied
-                </span>
-              ) : (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  <span className="material-icon" style={{ fontSize: '14px' }}>content_copy</span>
-                  Copy Record JSON
-                </span>
-              )}
-            </Button>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
             <Button variant="primary" onClick={() => setIsDetailOpen(false)}>
               Done
             </Button>

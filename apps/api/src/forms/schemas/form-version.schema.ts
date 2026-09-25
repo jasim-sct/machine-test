@@ -9,6 +9,9 @@ export class FormVersion {
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Form', required: true, index: true })
   formId: string;
 
+  @Prop({ type: String, required: true, index: true })
+  tenantId: string;
+
   @Prop({ required: true, default: 1 })
   versionNumber: number;
 
@@ -33,6 +36,8 @@ export class FormVersion {
 
 export const FormVersionSchema = SchemaFactory.createForClass(FormVersion);
 FormVersionSchema.index({ formId: 1, versionNumber: 1 }, { unique: true });
+FormVersionSchema.index({ tenantId: 1, formId: 1, versionNumber: 1 });
+FormVersionSchema.index({ tenantId: 1, formId: 1, createdAt: -1 });
 FormVersionSchema.set('toJSON', {
   transform: (_, ret: any) => {
     ret.id = ret._id.toString();
