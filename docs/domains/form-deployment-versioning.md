@@ -1,32 +1,43 @@
 # Domain: Form Deployment & Versioning
 
-> **Scope**: Release deployment, immutable version snapshots, deployment logs, and activity audit trails.  
-> **Source of Truth**: [`apps/api/src/forms/forms.service.ts`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/api/src/forms/forms.service.ts) and [`apps/api/src/forms/schemas/form-version.schema.ts`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/api/src/forms/schemas/form-version.schema.ts).  
-> **Last Verified**: 2026-09-24
+> **Scope**: Release deployment, immutable version snapshots, concurrency-safe releases, and rollback/reactivation.  
+> **Source of Truth**: [`apps/api/src/forms/forms.service.ts`](file:///home/sct/dd/multi-tenant-form-builder/apps/api/src/forms/forms.service.ts) and [`apps/api/src/forms/schemas/form-version.schema.ts`](file:///home/sct/dd/multi-tenant-form-builder/apps/api/src/forms/schemas/form-version.schema.ts).  
+> **Last Verified**: 2026-09-25
 
 ---
 
-## 1. Release Lifecycle & Snapshotting
+## 1. Release Lifecycle & Concurrency-Safe Snapshotting
 
 ```mermaid
 sequenceDiagram
-    participant User as User Action
+    participant User as Workspace Member
     participant Service as FormsService
-    participant VCollection as form_versions
+    participant VCollection as formversions
     participant FCollection as forms
 
     User->>Service: POST /forms/:id/deploy
-    Service->>VCollection: Count existing versions -> nextNumber = N + 1
-    Service->>VCollection: Create FormVersion document (frozen snapshot of draft)
+    Service->>Service: checkDuplicateReferences(draft.sections)
+    loop Concurrency Retry (up to 3 attempts)
+        Service->>VCollection: Query latest versionNumber -> nextNumber = N + 1
+        Service->>VCollection: Create FormVersion (frozen snapshot of draft)
+    end
     Service->>FCollection: Update deployedVersionId = newVersion._id
-    Service->>FCollection: Append deployment log { versionNumber, deployedAt, deployedBy }
-    Service->>FCollection: Append activity log { type: 'version_deployed', ... }
+    Service->>FCollection: Append deployment record (isCurrent: true)
+    Service->>FCollection: Prepend activity record (type: 'version_deployed')
+    Service->>AuditService: Log form:deploy event
 ```
 
 ---
 
 ## 2. Invariants & Rules
 
-1. **Immutability**: Once a `FormVersion` document is saved, its `elements`, `sections`, and layout properties are immutable.
-2. **Sequential Versioning**: Version numbers increment monotonically (`1, 2, 3...`) per form.
-3. **Draft Independence**: Publishing creates a snapshot copy. Subsequent edits to `Form.draft` do not modify the published version until the next explicit deployment.
+1. **Deployment and Versioning are One Operation**:
+   * Invoking `POST /forms/:id/deploy` releases the current draft and immediately updates `deployedVersionId`.
+2. **Duplicate Reference Prevention**:
+   * Deployment validates that all field references across zones and sections are globally unique within the form (`checkDuplicateReferences`). Colleague attempts to publish duplicate keys are blocked with HTTP 400.
+3. **Concurrency-Safe Atomic Increments**:
+   * Compound unique index `{ formId: 1, versionNumber: 1 }` prevents version duplication.
+   * If concurrent deploys collide, MongoDB throws error `11000`; `FormsService` catches the conflict and executes an atomic retry loop.
+4. **Historical Immutability & Rollback**:
+   * Historical `FormVersion` records are permanently frozen.
+   * Rollback / Re-activation (`POST /forms/:id/versions/:versionId/deploy`) simply points `Form.deployedVersionId` to an existing historical version without creating duplicate snapshots or mutating past releases.

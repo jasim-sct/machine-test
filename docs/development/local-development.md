@@ -1,8 +1,8 @@
 # Development: Local Development Workflow
 
 > **Scope**: Running development servers, live reloading, and package compilation.  
-> **Source of Truth**: [`package.json`](file:///c:/Users/Muhammed%20Jasim/machine-test/package.json).  
-> **Last Verified**: 2026-09-24
+> **Source of Truth**: `package.json`.  
+> **Last Verified**: 2026-09-25
 
 ---
 

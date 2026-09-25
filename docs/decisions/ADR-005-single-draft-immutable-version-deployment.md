@@ -18,5 +18,5 @@ Enforce a **Single Form, Single Continuous Draft, and Immutable Versioning** lif
 - **Negative**: Reverting to an older version requires explicitly loading its snapshot into the active draft.
 
 ## Related Areas
-- [`apps/api/src/forms/forms.service.ts`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/api/src/forms/forms.service.ts)
-- [`packages/shared/src/types/form.ts`](file:///c:/Users/Muhammed%20Jasim/machine-test/packages/shared/src/types/form.ts)
+- `apps/api/src/forms/forms.service.ts`
+- `packages/shared/src/types/form.ts`

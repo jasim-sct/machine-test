@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { createHash } from 'crypto';
 import { Form, FormDocument } from '../forms/schemas/form.schema';
 import { FormVersion, FormVersionDocument } from '../forms/schemas/form-version.schema';
 import { PublicFormDto } from '@saas/shared';
@@ -8,6 +9,7 @@ import { PublicFormDto } from '@saas/shared';
 export interface RuntimeFormResult {
   dto: PublicFormDto;
   etag: string;
+  lastModified: Date;
 }
 
 @Injectable()
@@ -37,7 +39,8 @@ export class RuntimeService {
       };
       return {
         dto,
-        etag: `W/"undeployed-${form._id}"`,
+        etag: `"undeployed-${form._id}"`,
+        lastModified: form.updatedAt || new Date(),
       };
     }
 
@@ -57,12 +60,15 @@ export class RuntimeService {
       };
       return {
         dto,
-        etag: `W/"missing-version-${form._id}"`,
+        etag: `"missing-version-${form._id}"`,
+        lastModified: form.updatedAt || new Date(),
       };
     }
 
-    const versionTimestamp = deployedVersion.updatedAt ? new Date(deployedVersion.updatedAt).getTime() : 0;
-    const etag = `W/"${deployedVersion._id}-${versionTimestamp}"`;
+    const versionDate = deployedVersion.updatedAt || new Date();
+    // Strong deterministic ETag based on immutable version content hash
+    const contentToHash = `${deployedVersion._id.toString()}-v${deployedVersion.versionNumber}-${versionDate.getTime()}`;
+    const strongEtag = `"${createHash('sha256').update(contentToHash).digest('hex')}"`;
 
     const dto: PublicFormDto = {
       publicId: form.publicId,
@@ -73,9 +79,14 @@ export class RuntimeService {
       formLayout: deployedVersion.formLayout || 'column',
       customCss: deployedVersion.customCss || '',
       isDeployed: true,
-      updatedAt: deployedVersion.updatedAt ? deployedVersion.updatedAt.toISOString() : new Date().toISOString(),
+      updatedAt: versionDate.toISOString(),
     };
 
-    return { dto, etag };
+    return {
+      dto,
+      etag: strongEtag,
+      lastModified: versionDate,
+    };
   }
 }
+

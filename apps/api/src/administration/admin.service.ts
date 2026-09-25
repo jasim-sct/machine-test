@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { AuditService } from '../infrastructure/audit/audit.service';
 import { Role, UserDto, UserStatus } from '@saas/shared';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class AdminService {
   constructor(
     private readonly usersService: UsersService,
     private readonly realtimeService: RealtimeService,
+    private readonly auditService: AuditService,
   ) {}
 
   async listUsers(search?: string): Promise<UserDto[]> {
@@ -43,19 +45,40 @@ export class AdminService {
 
     const updatedUser = await this.usersService.updateStatus(id, UserStatus.SUSPENDED);
 
-    // Emit real-time WebSocket event specifically to target user room
+    // Emit real-time WebSocket event specifically to target user room & disconnect active sockets
     this.realtimeService.emitUserSuspended(id);
+
+    await this.auditService.log({
+      action: 'user:suspended',
+      actorId: currentAdminId,
+      tenantId: user.tenantId || user._id.toString(),
+      resource: 'user',
+      resourceId: id,
+      result: 'SUCCESS',
+      details: { targetEmail: user.email },
+    });
 
     return this.formatUserDto(updatedUser);
   }
 
-  async unsuspendUser(id: string): Promise<UserDto> {
+  async unsuspendUser(id: string, currentAdminId?: string): Promise<UserDto> {
     const user = await this.usersService.findById(id);
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
 
     const updatedUser = await this.usersService.updateStatus(id, UserStatus.ACTIVE);
+
+    await this.auditService.log({
+      action: 'user:unsuspended',
+      actorId: currentAdminId || 'system',
+      tenantId: user.tenantId || user._id.toString(),
+      resource: 'user',
+      resourceId: id,
+      result: 'SUCCESS',
+      details: { targetEmail: user.email },
+    });
+
     return this.formatUserDto(updatedUser);
   }
 
@@ -71,3 +94,4 @@ export class AdminService {
     };
   }
 }
+

@@ -1,8 +1,8 @@
 # Operations: Deployment & Production Build
 
-> **Scope**: Building packages, production startup, and distribution artifacts.  
-> **Source of Truth**: `package.json` scripts in root and apps.  
-> **Last Verified**: 2026-09-24
+> **Scope**: Building packages, container orchestration, non-root execution, and production deployment environments.  
+> **Source of Truth**: `docker-compose.yml`, `package.json`, and Dockerfiles.  
+> **Last Verified**: 2026-09-25
 
 ---
 
@@ -21,12 +21,27 @@ This sequentially:
 
 ---
 
-## 2. Production Execution
+## 2. Multi-Container Orchestration (`docker-compose.yml`)
 
-- **API Process**:
-  ```bash
-  pnpm --filter @saas/api start:prod
-  # Executes: node dist/main
-  ```
-- **Web Frontend**:
-  - The static output in `apps/web/dist` can be served via Nginx, Caddy, Cloudflare Pages, or AWS S3/CloudFront.
+The platform includes a complete multi-container production topology:
+
+```bash
+docker compose up --build -d
+```
+
+### Deployed Services:
+* `edge-lb`: Nginx reverse proxy / load balancer on port `80:80`.
+* `web`: Production React SPA served via Nginx on internal port `80`.
+* `api-1`, `api-2`: Stateless API instances on internal port `3000` executing as non-root `USER node`.
+* `mongodb`: MongoDB 7.0 database (internal port `27017`).
+* `redis`: Redis 7.2 distributed pub/sub and state (internal port `6379`).
+* `vault`: HashiCorp Vault server (internal port `8200`).
+* `minio`: S3-compatible binary storage (internal port `9000`).
+
+---
+
+## 3. Environment Progression
+
+* **Development**: Local Node/Vite processes, local MongoDB, optional Redis, environment variable fallback.
+* **Staging**: Docker Compose cluster running in staging VPC, isolated staging database, staging Vault path.
+* **Production**: Enterprise CDN (Cloudflare/CloudFront) $\to$ Ingress / ALB $\to$ Kubernetes/ECS multi-instance API deployment $\to$ Managed MongoDB Atlas (Replica Set) + Managed Redis Cluster (ElastiCache) + Production Vault HA.

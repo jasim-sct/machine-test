@@ -130,6 +130,7 @@ export interface FormSection {
 export interface FormVersionDto {
   id: string;
   formId: string;
+  tenantId?: string;
   versionNumber: number;
   title: string;
   elements: FormElement[];
@@ -189,6 +190,7 @@ export interface FormDto {
   id: string;
   name: string;
   userId: string;
+  tenantId?: string;
   publicId: string;
   draft?: FormDraftDto;
   deployedVersionId: string | null;
@@ -251,6 +253,7 @@ export interface SubmitFormDto {
 export interface FormSubmissionDto {
   id: string;
   formId: string;
+  tenantId?: string;
   versionId: string;
   versionNumber?: number;
   data: Record<string, any>;
@@ -273,6 +276,7 @@ export interface FormDataRowDto {
 
 export interface FormDataViewDto {
   formId: string;
+  tenantId?: string;
   formName: string;
   columns: FormDataColumnDto[];
   rows: FormDataRowDto[];

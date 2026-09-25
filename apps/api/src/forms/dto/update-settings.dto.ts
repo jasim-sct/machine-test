@@ -7,6 +7,10 @@ export class UpdateSettingsDto {
   name?: string;
 
   @IsOptional()
+  @IsString()
+  webhookUrl?: string;
+
+  @IsOptional()
   settings?: {
     submissionLimit?: number | null;
     allowMultipleSubmissions?: boolean;
@@ -19,3 +23,4 @@ export class UpdateSettingsDto {
     webhookUrl?: string;
   };
 }
+

@@ -1,8 +1,8 @@
 # Contracts: WebSocket & Real-Time Events
 
-> **Scope**: WebSocket gateway protocols, connection authentication, rooms, and emitted event payloads.  
-> **Source of Truth**: [`apps/api/src/websocket/events.gateway.ts`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/api/src/websocket/events.gateway.ts) and [`packages/shared/src/index.ts`](file:///c:/Users/Muhammed%20Jasim/machine-test/packages/shared/src/index.ts).  
-> **Last Verified**: 2026-09-24
+> **Scope**: WebSocket gateway protocols, connection authentication, room authorization, and emitted event payloads.  
+> **Source of Truth**: [`apps/api/src/realtime/realtime.gateway.ts`](file:///home/sct/dd/multi-tenant-form-builder/apps/api/src/realtime/realtime.gateway.ts) and [`packages/shared/src/index.ts`](file:///home/sct/dd/multi-tenant-form-builder/packages/shared/src/index.ts).  
+> **Last Verified**: 2026-09-25
 
 ---
 
@@ -16,10 +16,11 @@
   })
   ```
 - **Connection Logic**:
-  - `EventsGateway.handleConnection(client: Socket)`
-  - Extracts JWT token from handshake auth or headers.
-  - Verifies token signature with `JWT_SECRET`.
-  - Client joins room: `user:${userId}`.
+  - `RealtimeGateway.handleConnection(client: Socket)`
+  - Verifies token signature with algorithm restriction `HS256`.
+  - Verifies user exists in MongoDB, is active (`status === 'ACTIVE'`), and `tokenVersion` matches.
+  - Client automatically joins authorized rooms: `user:${userId}` and `tenant:${tenantId}`.
+  - Subscriptions to unauthorized foreign rooms are rejected.
 
 ---
 
@@ -28,6 +29,7 @@
 ### `user:suspended` (`SOCKET_EVENTS.USER_SUSPENDED`)
 - **Direction**: Server $\to$ Client
 - **Target Room**: `user:${userId}`
+- **Cluster Distribution**: Broadcasts across all cluster nodes via Redis Pub/Sub adapter.
 - **Payload**:
   ```typescript
   {
@@ -35,8 +37,5 @@
     message: string;
   }
   ```
-- **Client Side Behavior**:
-  - `SocketProvider` traps the event.
-  - Purges tokens from `localStorage`.
-  - Disconnects active socket.
-  - Redirects user immediately to `/account-suspended`.
+- **Server Action**: Emits event and executes `server.in(room).disconnectSockets(true)` to terminate all active connections.
+- **Client Action**: Clears tokens from `localStorage` and navigates to `/account-suspended`.

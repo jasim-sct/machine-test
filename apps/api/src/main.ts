@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import * as express from 'express';
+const cookieParser = require('cookie-parser');
 import { AppModule } from './app.module';
 import { SecretsService } from './infrastructure/vault/secrets.service';
 import { RedisIoAdapter } from './realtime/redis-io.adapter';
@@ -14,6 +15,8 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger,
   });
+
+  app.use(cookieParser());
 
   const secretsService = app.get(SecretsService);
 

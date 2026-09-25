@@ -68,7 +68,19 @@ export class SecretsService implements OnModuleInit {
   }
 
   getJwtSecret(): string {
-    return this.get('JWT_SECRET', 'super-secret-jwt-key-for-saas-platform-change-in-prod');
+    const isProd = this.configService.get<string>('NODE_ENV') === 'production';
+    const secret = this.get('JWT_SECRET');
+
+    if (isProd) {
+      if (!secret || secret === 'super-secret-jwt-key-for-saas-platform-change-in-prod') {
+        throw new Error(
+          'Fatal: Insecure default JWT_SECRET detected in production. Production startup requires a securely configured secret from Vault or secure environment.',
+        );
+      }
+      return secret;
+    }
+
+    return secret || 'super-secret-jwt-key-for-saas-platform-change-in-prod';
   }
 
   getJwtExpiresIn(): string {

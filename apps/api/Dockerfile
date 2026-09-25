@@ -29,8 +29,13 @@ COPY apps/api/package.json ./apps/api/
 
 RUN pnpm install --prod --frozen-lockfile
 
-COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
-COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder --chown=node:node /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder --chown=node:node /app/apps/api/dist ./apps/api/dist
+
+USER node
 
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget -qO- http://localhost:3000/health/liveness || exit 1
+
 CMD ["node", "apps/api/dist/main.js"]

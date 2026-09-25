@@ -22,6 +22,7 @@ import {
 } from '@saas/shared';
 import { SubmitFormDto } from '../forms/dto/submit-form.dto';
 import { QueueService } from '../infrastructure/queue/queue.service';
+import { safeRegexTest } from '../common/utils/safe-regex';
 
 @Injectable()
 export class SubmissionsService {
@@ -31,6 +32,36 @@ export class SubmissionsService {
     @InjectModel(FormSubmission.name) private readonly formSubmissionModel: Model<FormSubmissionDocument>,
     private readonly queueService: QueueService,
   ) {}
+
+  private validateSubmissionPayload(data: Record<string, any>): void {
+    if (!data || typeof data !== 'object') {
+      throw new BadRequestException('Submission data must be an object');
+    }
+
+    const keys = Object.keys(data);
+    if (keys.length > 200) {
+      throw new BadRequestException('Submission contains too many fields (maximum 200 fields allowed)');
+    }
+
+    for (const key of keys) {
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+        throw new BadRequestException('Invalid submission field key detected');
+      }
+
+      if (key.length > 100) {
+        throw new BadRequestException(`Field key "${key.substring(0, 20)}..." exceeds maximum allowed length of 100 characters`);
+      }
+
+      const val = data[key];
+      if (typeof val === 'string' && val.length > 50000) {
+        throw new BadRequestException(`Field "${key}" exceeds maximum allowed length of 50,000 characters`);
+      }
+
+      if (Array.isArray(val) && val.length > 100) {
+        throw new BadRequestException(`Field "${key}" contains too many items (maximum 100 items allowed)`);
+      }
+    }
+  }
 
   async submit(publicId: string, dto: SubmitFormDto): Promise<{ message: string; id: string }> {
     const form = await this.formModel.findOne({ publicId }).exec();
@@ -62,6 +93,9 @@ export class SubmissionsService {
     if (!deployedVersion) {
       throw new BadRequestException('The deployed version for this form is unavailable');
     }
+
+    // Payload limits and anti-abuse validation
+    this.validateSubmissionPayload(dto.data || {});
 
     // Server-side validation against the deployed immutable version schema
     const elements: FormElement[] = [];
@@ -106,24 +140,24 @@ export class SubmissionsService {
         }
       }
 
-      // Regex validation pattern check
+      // Safe Regex validation pattern check (ReDoS-safe)
       if (el.validation?.enabled && el.validation.pattern && rawVal !== undefined && rawVal !== null && rawVal !== '') {
-        try {
-          const regex = new RegExp(el.validation.pattern);
-          if (!regex.test(String(rawVal))) {
-            throw new BadRequestException(
-              el.validation.errorMessage || `Field "${el.label || el.name || fieldKey}" has an invalid format`,
-            );
-          }
-        } catch (e: any) {
-          if (e instanceof BadRequestException) throw e;
+        const regexResult = safeRegexTest(el.validation.pattern, String(rawVal), 5000);
+        if (!regexResult.matches) {
+          throw new BadRequestException(
+            el.validation.errorMessage || regexResult.error || `Field "${el.label || el.name || fieldKey}" has an invalid format`,
+          );
         }
       }
     }
 
-    // Persist immutable submission record linked permanently to the versionId
+    // Derive tenant identity server-side from form
+    const tenantId = form.tenantId || form.userId.toString();
+
+    // Persist immutable submission record linked permanently to the versionId and tenantId
     const submission = await this.formSubmissionModel.create({
       formId: form._id,
+      tenantId,
       versionId: deployedVersion._id,
       data: submittedData,
     });
@@ -160,7 +194,7 @@ export class SubmissionsService {
     };
   }
 
-  async getDataView(userId: string, formId: string): Promise<FormDataViewDto> {
+  async getDataView(userId: string, formId: string, tenantId?: string): Promise<FormDataViewDto> {
     if (!Types.ObjectId.isValid(formId)) {
       throw new NotFoundException('Form not found');
     }
@@ -170,7 +204,7 @@ export class SubmissionsService {
       throw new NotFoundException('Form not found');
     }
 
-    if (form.userId.toString() !== userId) {
+    if (form.userId.toString() !== userId || (tenantId && form.tenantId && form.tenantId !== tenantId)) {
       throw new ForbiddenException('You do not have access to this form data');
     }
 
@@ -180,9 +214,14 @@ export class SubmissionsService {
       .sort({ versionNumber: 1 })
       .exec();
 
-    // Query all submissions for this form
+    // Query all submissions for this form with tenant scoping
+    const subFilter: any = { formId: form._id };
+    if (tenantId) {
+      subFilter.tenantId = tenantId;
+    }
+
     const submissions = await this.formSubmissionModel
-      .find({ formId: form._id })
+      .find(subFilter)
       .sort({ createdAt: -1 })
       .exec();
 

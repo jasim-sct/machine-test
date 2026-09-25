@@ -62,8 +62,38 @@ export class UsersService {
     return user.save();
   }
 
-  async findAll(search?: string): Promise<UserDocument[]> {
+  async incrementTokenVersion(id: string): Promise<UserDocument> {
+    const user = await this.userModel.findByIdAndUpdate(
+      id,
+      { $inc: { tokenVersion: 1 } },
+      { new: true },
+    );
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    return user;
+  }
+
+  async updatePassword(id: string, passwordHash: string): Promise<UserDocument> {
+    const user = await this.userModel.findByIdAndUpdate(
+      id,
+      {
+        passwordHash,
+        $inc: { tokenVersion: 1 },
+      },
+      { new: true },
+    );
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    return user;
+  }
+
+  async findAll(search?: string, tenantId?: string): Promise<UserDocument[]> {
     const filter: any = {};
+    if (tenantId) {
+      filter.tenantId = tenantId;
+    }
     if (search && search.trim()) {
       const term = search.trim();
       filter.$or = [

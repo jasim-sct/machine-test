@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { useNavigate } from 'react-router-dom';
 import { AuthResponse, LoginDto, RegisterDto, UserDto, UserStatus } from '@saas/shared';
 import { authService } from '../../services/auth.service';
+import { setAccessToken } from '../../services/api';
 
 interface AuthContextType {
   user: UserDto | null;
@@ -10,7 +11,7 @@ interface AuthContextType {
   login: (credentials: LoginDto) => Promise<AuthResponse>;
   register: (data: RegisterDto) => Promise<AuthResponse>;
   updateProfile: (data: { name?: string; email?: string }) => Promise<UserDto>;
-  logout: () => void;
+  logout: () => Promise<void>;
   handleSuspended: (userEmail?: string) => void;
 }
 
@@ -18,7 +19,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserDto | null>(null);
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const navigate = useNavigate();
 
@@ -35,7 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (emailToPersist) {
         sessionStorage.setItem('suspended_email', emailToPersist);
       }
-      localStorage.removeItem('token');
+      setAccessToken(null);
       setToken(null);
       setUser(null);
       navigate('/account-suspended', { replace: true });
@@ -43,39 +44,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [navigate],
   );
 
-  // Initialize and validate token on mount only
+  // Initialize and validate session on mount via HttpOnly refresh cookie
   useEffect(() => {
     let isMounted = true;
 
     async function initAuth() {
-      const savedToken = localStorage.getItem('token');
-      if (!savedToken) {
-        if (isMounted) setLoading(false);
-        return;
-      }
-
       try {
+        // Attempt session reconstruction using the browser's HttpOnly refresh cookie
+        const refreshRes = await authService.refreshToken();
+        if (!isMounted) return;
+
+        setToken(refreshRes.accessToken);
         const profile = await authService.getProfile();
-        if (isMounted) {
-          if (profile.status === UserStatus.SUSPENDED) {
-            handleSuspended(profile.email);
-            return;
-          }
-          setUser(profile);
-          setToken(savedToken);
+        if (!isMounted) return;
+
+        if (profile.status === UserStatus.SUSPENDED) {
+          handleSuspended(profile.email);
+          return;
+        }
+
+        setUser(profile);
+        if (profile.email) {
           localStorage.setItem('last_user_email', profile.email);
         }
-      } catch (err: any) {
-        console.warn('Failed to restore session:', err?.message);
-        if (err?.statusCode === 403 || err?.message?.includes('suspended')) {
-          handleSuspended();
-        } else if (err?.statusCode === 401) {
-          // Token is explicitly expired or invalid
-          localStorage.removeItem('token');
-          if (isMounted) {
-            setToken(null);
-            setUser(null);
-          }
+      } catch {
+        // Not logged in or session expired
+        if (isMounted) {
+          setAccessToken(null);
+          setToken(null);
+          setUser(null);
         }
       } finally {
         if (isMounted) setLoading(false);
@@ -84,33 +81,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initAuth();
 
-    // Listen for custom suspension event dispatched by API client
+    // Listen for custom events dispatched by API client
     const onSuspended = () => {
       handleSuspended();
     };
+
+    const onTokenRefreshed = (e: Event) => {
+      const customEvent = e as CustomEvent<{ token: string }>;
+      if (customEvent.detail?.token) {
+        setToken(customEvent.detail.token);
+      }
+    };
+
+    const onAuthFailure = () => {
+      setAccessToken(null);
+      setToken(null);
+      setUser(null);
+    };
+
     window.addEventListener('saas:account-suspended', onSuspended);
+    window.addEventListener('saas:token-refreshed', onTokenRefreshed);
+    window.addEventListener('saas:auth-failure', onAuthFailure);
 
     return () => {
       isMounted = false;
       window.removeEventListener('saas:account-suspended', onSuspended);
+      window.removeEventListener('saas:token-refreshed', onTokenRefreshed);
+      window.removeEventListener('saas:auth-failure', onAuthFailure);
     };
   }, [handleSuspended]);
 
   const login = async (credentials: LoginDto): Promise<AuthResponse> => {
     const res = await authService.login(credentials);
-    localStorage.setItem('token', res.accessToken);
-    localStorage.setItem('last_user_email', res.user.email);
     setToken(res.accessToken);
     setUser(res.user);
+    if (res.user?.email) {
+      localStorage.setItem('last_user_email', res.user.email);
+    }
     return res;
   };
 
   const register = async (data: RegisterDto): Promise<AuthResponse> => {
     const res = await authService.register(data);
-    localStorage.setItem('token', res.accessToken);
-    localStorage.setItem('last_user_email', res.user.email);
     setToken(res.accessToken);
     setUser(res.user);
+    if (res.user?.email) {
+      localStorage.setItem('last_user_email', res.user.email);
+    }
     return res;
   };
 
@@ -123,8 +140,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return updated;
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
+  const logout = async () => {
+    try {
+      await authService.logout();
+    } catch {
+      // Ensure client state is wiped even if server request fails
+    }
+    setAccessToken(null);
     setToken(null);
     setUser(null);
     navigate('/login');

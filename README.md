@@ -1,6 +1,6 @@
 # SaaS Form Platform Monorepo
 
-A modular, full-stack SaaS form-building and submission platform featuring a Single Page Application (Admin & User workspaces, Drag-and-Drop Form Builder, Form Preview, Submissions Data Table, and Public Form Runtime), a NestJS REST API with Socket.IO real-time event broadcasting, and a MongoDB database with Mongoose ODM.
+A production-grade, horizontally scalable, multi-tenant SaaS form-building and submission platform. Features a React 19 Single Page Application (Admin & User workspaces, Drag-and-Drop Form Builder, Form Preview, Submissions Data Table, and Public Form Runtime), a NestJS modular monolith REST API with Socket.IO real-time Redis scaling, HashiCorp Vault secrets management, MongoDB persistence, and an Nginx reverse proxy / edge load balancer.
 
 ---
 
@@ -15,13 +15,15 @@ A modular, full-stack SaaS form-building and submission platform featuring a Sin
 ├── packages/
 │   └── shared/              # Shared types, DTO interfaces, enums, AST schema definitions
 │
-├── docs/                    # Complete architectural, domain, and operational documentation
+├── docs/                    # Complete architectural, domain, security, and operational documentation
+├── nginx/                   # Nginx reverse proxy, edge load balancer, and rate limiting rules
+├── docker-compose.yml       # Production multi-container topology (edge, web, api-1, api-2, mongo, redis, vault, minio)
 ├── package.json             # Root workspace scripts (dev, build, lint, test, seed)
 ├── pnpm-workspace.yaml      # pnpm workspace configuration
 ├── AGENTS.md                # Engineering rules and directives for AI agents
-├── ARCHITECTURE.md          # System architecture and data flow blueprints
+├── ARCHITECTURE.md          # Complete production architecture and security hardening specification
 ├── CONTRIBUTING.md          # Contributor guide and PR workflow
-└── SECURITY.md              # Security policies and threat model
+└── SECURITY.md              # Security policies, authentication pipeline, and threat model
 ```
 
 ---
@@ -31,9 +33,10 @@ A modular, full-stack SaaS form-building and submission platform featuring a Sin
 ### Prerequisites
 - **Node.js**: `>= 20.0.0`
 - **pnpm**: `>= 9.0.0`
-- **MongoDB**: Running locally at `mongodb://127.0.0.1:27017/saas_db`
+- **MongoDB**: Running at `mongodb://127.0.0.1:27017/saas_db`
+- **Redis** *(Optional for local dev, required for multi-node)*: Running at `redis://127.0.0.1:6379`
 
-### Installation & Local Setup
+### Local Development Setup
 
 1. **Install Dependencies**:
    ```bash
@@ -64,7 +67,7 @@ A modular, full-stack SaaS form-building and submission platform featuring a Sin
 
 4. **Run Verification & Tests**:
    ```bash
-   # Typecheck and lint across all packages
+   # Typecheck and lint across all workspace packages
    pnpm lint
 
    # Run automated Jest E2E test suites
@@ -76,60 +79,54 @@ A modular, full-stack SaaS form-building and submission platform featuring a Sin
 
 ---
 
-## 3. Key Capabilities & Feature Modules
+## 3. Production Multi-Container Orchestration
 
-### A. Authentication & Session Management
-- **Role-Based Portals**: Unified `/login` seamlessly routes Admins to `/admin/dashboard` and regular users to `/dashboard`.
-- **User Registration**: `/register` provisions standard users (`Role.USER`). Admin creation is strictly controlled via environment seeding.
-- **Real-Time Session Revocation**: When an admin suspends a user account (`PATCH /admin/users/:id/suspend`), the backend issues an immediate WebSocket event (`user:suspended`) over Socket.IO to terminate the active browser session instantly.
+To run the complete production topology with edge load balancing, dual API instances, Redis pub/sub, MongoDB, Vault, and MinIO:
 
-### B. Form Builder & Continuous Drafting
-- **Hierarchical Form Canvas**: Sections $\to$ Zones $\to$ Elements canvas composition with dynamic responsive column grids.
-- **Continuous Autosave**: Edits mutate the active `Form.draft` without impacting deployed versions.
-- **Properties Panel**: Granular dimension controls (width presets, custom width, custom height) constrained with `maxWidth: 100%` and anti-overflow protections.
+```bash
+docker compose up --build -d
+```
 
-### C. Deployment & Versioning
-- **Immutable Releases**: Deploying a draft snapshots the schema into a frozen `FormVersion` record with incremental version numbers (`Version 1`, `Version 2`, etc.).
-- **Live Public Form**: Public forms are served at `/f/:publicId` without requiring authentication.
-- **Historical Integrity**: Submissions are permanently indexed against the active `versionId` deployed at the time of submission.
-
-### D. Submissions & Analytics
-- **Interactive Data Table**: View submissions with dynamic column projections derived from field labels.
-- **CSV Export**: Streamed submission data exports via `GET /forms/:id/data?format=csv`.
-- **Form Analytics**: Total responses, version count, and activity feeds.
+- **Edge Proxy / Application Ingress**: [http://localhost](http://localhost) (Port 80)
+- **API Cluster**: `api-1:3000` & `api-2:3000` balanced via Nginx least-connections
+- **Health Verification**: [http://localhost/health/readiness](http://localhost/health/readiness)
 
 ---
 
-## 4. Environment Variables
+## 4. Key Architectural & Security Capabilities
 
-### Backend (`apps/api/.env`)
-```ini
-PORT=3000
-MONGODB_URI="mongodb://127.0.0.1:27017/saas_db"
-JWT_SECRET="super-secret-jwt-key-replace-in-production"
-JWT_EXPIRATION="7d"
-ADMIN_NAME="SaaS Administrator"
-ADMIN_EMAIL="admin@saas.local"
-ADMIN_PASSWORD="AdminPassword123!"
-FRONTEND_URL="http://localhost:5173"
-```
+### A. Authentication & Session Management
+- **Short-Lived JWT & Refresh Rotation**: 15-minute access tokens signed with `HS256`, paired with 7-day rotating refresh tokens featuring replay reuse detection.
+- **Immediate Session Revocation**: `tokenVersion` increments upon password change or `POST /auth/logout-all`, invalidating sessions cluster-wide.
+- **Cross-Instance Realtime Revocation**: When an admin suspends a user account (`PATCH /admin/users/:id/suspend`), the backend broadcasts `user:suspended` across all API instances via the Redis Pub/Sub adapter and terminates open sockets immediately.
 
-### Frontend (`apps/web/.env`)
-```ini
-VITE_API_URL="http://localhost:3000"
-VITE_WS_URL="http://localhost:3000"
-```
+### B. Multi-Tenant Isolation & Fine-Grained Authorization
+- **Server-Derived Tenant Identity**: Tenant context is resolved on the backend from authenticated tokens (`@CurrentTenant()`), never trusted from client headers.
+- **Compound Database Scoping**: All queries hit compound indexes prefixed with `tenantId`. Cross-tenant reads and mutations return HTTP 403 Forbidden.
+- **Granular RBAC**: Enforced via `PermissionsGuard` and `@RequirePermissions(Permission.XYZ)`.
+
+### C. Form Builder & Deployment Lifecycle
+- **Single Form / Single Mutable Draft**: Edits mutate `Form.draft` without impacting deployed releases.
+- **Concurrency-Safe Atomic Deployment**: `POST /forms/:id/deploy` snapshots the draft into an immutable `FormVersion`. A retry loop handles concurrent deployment collisions without duplicate version creation.
+- **Deterministic Strong ETag Caching**: Public forms emit SHA-256 content hashes, `Cache-Control: public, no-cache`, and `Last-Modified`, returning HTTP 304 on cache hits.
+
+### D. Public Form Security & Anti-Abuse
+- **Payload Limits**: Max 200 fields, 50KB strings, prototype pollution blocking.
+- **ReDoS Defense**: `safeRegexTest` detects catastrophic backtracking nested quantifiers and bounds evaluated string lengths.
+- **SSRF Defense**: Asynchronously dispatched webhooks validate targets via `validateSafeUrl`, blocking internal network IPs and cloud metadata (`169.254.169.254`).
 
 ---
 
 ## 5. Documentation Navigation
 
-Detailed technical documentation is available in the [`docs/`](file:///c:/Users/Muhammed%20Jasim/machine-test/docs/) directory:
+Detailed technical documentation is available in the [`docs/`](file:///home/sct/dd/multi-tenant-form-builder/docs/) directory:
 
-- [Documentation Index](file:///c:/Users/Muhammed%20Jasim/machine-test/docs/README.md)
-- [Source of Truth Mapping](file:///c:/Users/Muhammed%20Jasim/machine-test/docs/source-of-truth.md)
-- [Documentation Audit & Verification Matrix](file:///c:/Users/Muhammed%20Jasim/machine-test/docs/documentation-audit.md)
-- [Architecture Risks & Technical Debt](file:///c:/Users/Muhammed%20Jasim/machine-test/docs/architecture-risks.md)
-- [Architecture Decision Records (ADRs)](file:///c:/Users/Muhammed%20Jasim/machine-test/docs/decisions/README.md)
-- [Domain Specifications](file:///c:/Users/Muhammed%20Jasim/machine-test/docs/domains/README.md)
-- [API & Database Contracts](file:///c:/Users/Muhammed%20Jasim/machine-test/docs/contracts/api.md)
+- [Documentation Index](file:///home/sct/dd/multi-tenant-form-builder/docs/README.md)
+- [System Architecture (ARCHITECTURE.md)](file:///home/sct/dd/multi-tenant-form-builder/ARCHITECTURE.md)
+- [Canonical API Inventory](file:///home/sct/dd/multi-tenant-form-builder/docs/api/api-inventory.md)
+- [Source of Truth Mapping](file:///home/sct/dd/multi-tenant-form-builder/docs/source-of-truth.md)
+- [Security Architecture & Threat Model](file:///home/sct/dd/multi-tenant-form-builder/docs/security/security-architecture.md)
+- [Architecture Risks & Technical Debt](file:///home/sct/dd/multi-tenant-form-builder/docs/risks/architecture-risks.md)
+- [Security Gap & Control Matrix](file:///home/sct/dd/multi-tenant-form-builder/docs/risks/security-gaps.md)
+- [Architecture Decision Records (ADRs)](file:///home/sct/dd/multi-tenant-form-builder/docs/decisions/README.md)
+- [Database Schema Contracts](file:///home/sct/dd/multi-tenant-form-builder/docs/contracts/database.md)

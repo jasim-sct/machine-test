@@ -1,8 +1,8 @@
 # Operations: Incident Response & Recovery
 
 > **Scope**: Failure scenarios, database recovery, and emergency account restoration.  
-> **Source of Truth**: [`apps/api/src/seed.ts`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/api/src/seed.ts) and system operations.  
-> **Last Verified**: 2026-09-24
+> **Source of Truth**: `apps/api/src/seed.ts` and system operations.  
+> **Last Verified**: 2026-09-25
 
 ---
 

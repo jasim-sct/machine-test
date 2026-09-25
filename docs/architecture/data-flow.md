@@ -1,8 +1,8 @@
 # Architecture: Data Flow
 
 > **Scope**: End-to-end data flows for Form Autosaving, Version Deployment, and Public Submissions.  
-> **Source of Truth**: [`apps/api/src/forms/forms.service.ts`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/api/src/forms/forms.service.ts) and [`apps/web/src/features/forms/`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/web/src/features/forms/).  
-> **Last Verified**: 2026-09-24
+> **Source of Truth**: Implementation across `apps/api/src/forms/`, `apps/api/src/submissions/`, and `apps/web/src/features/forms/`.  
+> **Last Verified**: 2026-09-25
 
 ---
 
@@ -18,8 +18,8 @@ sequenceDiagram
 
     Creator->>Editor: Updates element label / adds zone
     Editor->>API: PATCH /forms/:id/draft { title, elements, sections, ... }
-    API->>Service: updateDraft(userId, formId, dto)
-    Service->>Service: Validate ownership (form.userId === userId)
+    API->>Service: updateDraft(userId, formId, dto, tenantId)
+    Service->>Service: Validate ownership (form.userId === userId && form.tenantId === tenantId)
     Service->>DB: Update form.draft & form.updatedAt
     DB-->>Service: Saved
     Service-->>API: Return updated FormDto
@@ -28,7 +28,7 @@ sequenceDiagram
 
 ---
 
-## 2. Release Deployment & Version Snapshotting Flow
+## 2. Release Deployment & Concurrency-Safe Snapshotting Flow
 
 ```mermaid
 sequenceDiagram
@@ -36,18 +36,21 @@ sequenceDiagram
     participant Editor as Form Editor (React)
     participant API as FormsController
     participant Service as FormsService
-    participant VModel as MongoDB (form_versions)
+    participant VModel as MongoDB (formversions)
     participant FModel as MongoDB (forms)
+    participant Audit as AuditService
 
     Creator->>Editor: Clicks "Deploy Form"
     Editor->>API: POST /forms/:id/deploy
-    API->>Service: deployDraft(userId, formId)
-    Service->>Service: Validate ownership & non-empty draft
-    Service->>VModel: Find max versionNumber (e.g. 1) -> next is 2
-    Service->>VModel: Create FormVersion { formId, versionNumber: 2, title, elements, sections, ... }
-    VModel-->>Service: Saved new FormVersion document
+    API->>Service: deployDraft(userId, formId, tenantId)
+    Service->>Service: Validate ownership & uniqueness of field references
+    loop Atomic Retry Loop (max 3 attempts)
+        Service->>VModel: Query latest versionNumber -> next is N + 1
+        Service->>VModel: Create FormVersion (frozen immutable snapshot)
+    end
     Service->>FModel: Update form.deployedVersionId = newVersion._id
-    Service->>FModel: Append deployment record to form.deployments
+    Service->>FModel: Prepend activity & deployment record
+    Service->>Audit: Log form:deploy event
     FModel-->>Service: Updated
     Service-->>API: Return updated FormDto
     API-->>Editor: 200 OK (hasUnpublishedChanges = false)
@@ -59,19 +62,24 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    actor Submitter as Public User
+    actor Submitter as Public Visitor
     participant Page as PublicFormView (/f/:publicId)
-    participant API as PublicFormsController
-    participant Service as FormsService
-    participant DB as MongoDB (form_submissions)
+    participant API as SubmissionsController
+    participant Service as SubmissionsService
+    participant DB as MongoDB (formsubmissions)
+    participant Queue as QueueService
 
     Submitter->>Page: Fills out form and clicks Submit
     Page->>API: POST /public/forms/:publicId/submissions { data }
-    API->>Service: submitPublicForm(publicId, dto)
-    Service->>Service: Look up Form by publicId
-    Service->>Service: Verify form.deployedVersionId exists and accepting submissions
-    Service->>DB: Create FormSubmission { formId, versionId: deployedVersionId, data }
+    API->>Service: submit(publicId, dto)
+    Service->>Service: Look up Form by publicId & verify deployedVersionId exists
+    Service->>Service: Payload bounds check (max 200 fields, 50KB strings)
+    Service->>Service: safeRegexTest on validated fields
+    Service->>DB: Create FormSubmission { formId, tenantId, versionId, data }
     DB-->>Service: Created submission record
-    Service-->>API: Return { message: "Thank you...", id: submission._id }
+    opt Webhook configured
+        Service->>Queue: Dispatch 'webhook_notification' asynchronously
+    end
+    Service-->>API: Return { message: "Submission received successfully", id: submission._id }
     API-->>Page: 201 Created
 ```

@@ -1,8 +1,8 @@
-# Architecture: System Overview & Topology
+# Architecture: System Overview & Modular Monolith Topology
 
 > **Scope**: Application boundaries, structural modules, and communication channels.  
-> **Source of Truth**: Monorepo package manifests and NestJS module imports in [`apps/api/src/app.module.ts`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/api/src/app.module.ts).  
-> **Last Verified**: 2026-09-24
+> **Source of Truth**: Monorepo package manifests and NestJS module imports in [`apps/api/src/app.module.ts`](file:///home/sct/dd/multi-tenant-form-builder/apps/api/src/app.module.ts).  
+> **Last Verified**: 2026-09-25
 
 ---
 
@@ -10,52 +10,53 @@
 
 ```mermaid
 flowchart TD
-    subgraph ClientBrowser ["Client Browser"]
-        WebApp["React SPA (apps/web)"]
-        PublicForm["Public Form Page (/f/:publicId)"]
+    subgraph ClientLayer ["Client & Edge Ingress"]
+        Browser["User / Admin Browser (React 19 SPA)"]
+        PublicVisitor["Public Form Visitor"]
+        Edge["Nginx Reverse Proxy / Load Balancer (:80)"]
     end
 
-    subgraph BackendServices ["Backend API (apps/api)"]
-        HttpServer["Express HTTP Server (:3000)"]
-        WsServer["Socket.IO Gateway (:3000)"]
-        
-        AuthModule["AuthModule"]
-        UsersModule["UsersModule"]
-        FormsModule["FormsModule"]
-        AdminModule["AdminModule"]
-        DashboardModule["DashboardModule"]
+    subgraph ApiCluster ["API Cluster (apps/api - NestJS 11)"]
+        Api1["API Instance 1 (:3000)"]
+        Api2["API Instance 2 (:3000)"]
     end
 
-    subgraph DatabaseLayer ["Database"]
-        Mongo[("MongoDB (saas_db)")]
+    subgraph MonolithModules ["Modular Monolith Domains"]
+        Identity["IdentityModule"]
+        Forms["FormsModule"]
+        Runtime["RuntimeModule"]
+        Submissions["SubmissionsModule"]
+        Administration["AdministrationModule"]
+        Realtime["RealtimeModule"]
+        Infrastructure["InfrastructureModule (Vault, Redis, Storage, Queue, Audit)"]
     end
 
-    WebApp -->|REST API / JSON| HttpServer
-    PublicForm -->|REST API / JSON| HttpServer
-    WebApp <-->|WebSocket Events| WsServer
+    subgraph StateAndSecurity ["Stateful & Security Infrastructure"]
+        MongoDB[("MongoDB (saas_db)")]
+        Redis[("Redis (Pub/Sub, Queue)")]
+        Vault[("HashiCorp Vault")]
+        Storage[("MinIO / S3 Object Storage")]
+    end
 
-    HttpServer --> AuthModule
-    HttpServer --> UsersModule
-    HttpServer --> FormsModule
-    HttpServer --> AdminModule
-    HttpServer --> DashboardModule
+    Browser -->|HTTP / WS| Edge
+    PublicVisitor -->|HTTP| Edge
+    Edge --> Api1
+    Edge --> Api2
 
-    AuthModule --> Mongo
-    UsersModule --> Mongo
-    FormsModule --> Mongo
-    AdminModule --> Mongo
-    DashboardModule --> Mongo
+    Api1 -.-> MonolithModules
+    Api2 -.-> MonolithModules
+
+    Infrastructure --> MongoDB
+    Infrastructure --> Redis
+    Infrastructure --> Vault
+    Infrastructure --> Storage
+    Realtime <-->|Pub/Sub Adapter| Redis
 ```
 
 ---
 
 ## 2. Core Package Responsibilities
 
-1. **`apps/web`**:
-   - Single entry point SPA rendering workspace routes, admin console, form builder, and public forms.
-   - Built with React 19, Vite 6, and React Router DOM 7.
-2. **`apps/api`**:
-   - NestJS 11 backend providing REST APIs and WebSocket server.
-   - Handles authentication, role enforcement, validation, and database operations via Mongoose.
-3. **`packages/shared`**:
-   - Shared contract layer containing TypeScript interfaces, enums (`Role`, `UserStatus`), DTOs, and Form Schema AST types (`FormElement`, `FormSection`, `FormZone`).
+1. **`apps/web`**: Single-page application built with React 19, TypeScript, and Vite 6. Renders user workspaces, admin console, form builder canvas, and public form runtime.
+2. **`apps/api`**: NestJS 11 modular monolith providing REST endpoints and Socket.IO real-time services.
+3. **`packages/shared`**: Leaf contract layer containing canonical TypeScript interfaces, DTOs, enums (`Role`, `UserStatus`, `Permission`), and Form AST types.

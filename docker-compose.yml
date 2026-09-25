@@ -81,6 +81,7 @@ services:
   mongodb:
     image: mongo:7.0
     container_name: saas-mongodb
+    command: ["mongod", "--bind_ip_all"]
     volumes:
       - mongodb_data:/data/db
     networks:
@@ -106,8 +107,6 @@ services:
     environment:
       - VAULT_DEV_ROOT_TOKEN_ID=dev-root-token-saas-platform
       - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
-    ports:
-      - "8200:8200"
     networks:
       - saas-network
 
@@ -123,9 +122,6 @@ services:
       - MINIO_ROOT_PASSWORD=minioadminpassword
     volumes:
       - minio_data:/data
-    ports:
-      - "9000:9000"
-      - "9001:9001"
     networks:
       - saas-network
 

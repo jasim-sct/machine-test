@@ -14,5 +14,5 @@ Implement a **Socket.IO WebSocket Gateway** (`EventsGateway`). When an admin sus
 - **Negative**: Adds persistent WebSocket connection overhead per active user tab. In multi-instance deployments, requires a Redis adapter to broadcast across backend nodes.
 
 ## Related Areas
-- [`apps/api/src/websocket/events.gateway.ts`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/api/src/websocket/events.gateway.ts)
-- [`apps/web/src/app/providers/SocketProvider.tsx`](file:///c:/Users/Muhammed%20Jasim/machine-test/apps/web/src/app/providers/SocketProvider.tsx)
+- `apps/api/src/websocket/events.gateway.ts`
+- `apps/web/src/app/providers/SocketProvider.tsx`

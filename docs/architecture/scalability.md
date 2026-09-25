@@ -1,34 +1,35 @@
 # Architecture: Scalability & Performance Model
 
-> **Scope**: Concurrency model, database query efficiency, and horizontal scaling characteristics.  
-> **Source of Truth**: Implementation across `apps/api/src/forms/forms.service.ts` and database schemas.  
-> **Last Verified**: 2026-09-24
+> **Scope**: Concurrency model, database query efficiency, horizontal scaling, and caching.  
+> **Source of Truth**: Implementation across `apps/api/src/`, `nginx/`, and `docker-compose.yml`.  
+> **Last Verified**: 2026-09-25
 
 ---
 
 ## 1. Concurrency & Performance Profile
 
 ### Backend Concurrency Model
-- The NestJS application runs on Node.js single-threaded event loop.
-- I/O operations (MongoDB queries, network sockets) are asynchronous and non-blocking using `async`/`await` and Promises.
+* NestJS operates asynchronously on the Node.js event loop.
+* Non-blocking I/O queries MongoDB and Redis using Promises and async connection pooling.
+* Deployment concurrency collisions are resolved via an atomic retry loop on MongoDB `E11000`.
 
-### Database Indexing & Query Optimization
-- **`User` Collection**: Unique index on `email`. Lookup in `ActiveUserGuard` leverages primary key index `_id`.
-- **`Form` Collection**:
-  - Unique index on `publicId` for fast public form resolution.
-  - Index on `userId` for workspace form lists.
-- **`FormVersion` Collection**:
-  - Compound unique index `{ formId: 1, versionNumber: 1 }` prevents race conditions during version creation.
-- **`FormSubmission` Collection**:
-  - Compound index `{ formId: 1, createdAt: -1 }` optimizes paginated dashboard queries and CSV streaming exports.
+### Compound Database Indexing
+All high-traffic queries hit compound indexes:
+* **Users**: `{ tenantId: 1, email: 1 }`
+* **Forms**: `{ tenantId: 1, updatedAt: -1 }`
+* **Versions**: `{ formId: 1, versionNumber: 1 }` (unique) & `{ tenantId: 1, formId: 1, versionNumber: -1 }`
+* **Submissions**: `{ tenantId: 1, formId: 1, createdAt: -1 }`
+* **Refresh Tokens**: `{ userId: 1, family: 1 }` & `{ expiresAt: 1 }` (TTL auto-cleanup)
 
 ---
 
-## 2. Horizontal Scaling Roadmap & Bottlenecks
+## 2. Implemented Horizontal Scaling Strategies
 
-1. **WebSocket Session Distribution**:
-   - Currently, Socket.IO runs in-memory.
-   - *Scale Strategy*: Deploy a Redis instance and attach `@socket.io/redis-adapter` to distribute socket events across clustered API instances.
-2. **Read vs. Write Load**:
-   - Public form views are read-heavy and can be cached via edge CDN or Redis.
-   - Submissions are write-heavy and can be sharded on `{ formId: "hashed" }` in MongoDB Atlas.
+1. **Stateless API Tier**:
+   * API nodes maintain no local session state in memory. JWT access tokens are validated independently against the shared Vault secret.
+2. **Socket.IO Redis Pub/Sub Adapter**:
+   * Multi-instance WebSocket scaling is fully active via `RedisIoAdapter` (`@socket.io/redis-adapter`). Real-time moderation and user suspension fan out across all cluster instances.
+3. **Deterministic Edge Caching (ETag)**:
+   * Public form requests emit deterministic strong ETags and `Cache-Control: public, no-cache`. Responses return HTTP 304 on cache hits, offloading origin server CPU and network bandwidth.
+4. **Asynchronous Notification Queues**:
+   * Heavy webhook notifications are dispatched to Redis queues asynchronously, preserving low latency for submission POST requests.
