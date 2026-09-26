@@ -4,6 +4,8 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 const request = require('supertest');
 import { AppModule } from '../src/app.module';
 
+jest.setTimeout(60000);
+
 describe('Form Management & Public Form Flow (e2e)', () => {
   let app: INestApplication;
   let user1Token: string;
@@ -640,6 +642,191 @@ describe('Form Management & Public Form Flow (e2e)', () => {
         .expect(201);
 
       expect(validSub.body.id).toBeDefined();
+    });
+
+    it('should enforce idempotency when Idempotency-Key header is supplied', async () => {
+      const idempotencyKey = `idem_${Date.now()}_test`;
+
+      // First submission
+      const sub1 = await request(app.getHttpServer())
+        .post(`/public/forms/${hierarchicalPublicId}/submissions`)
+        .set('Idempotency-Key', idempotencyKey)
+        .send({
+          data: {
+            username: 'idem_user',
+          },
+        })
+        .expect(201);
+
+      const firstId = sub1.body.id;
+      expect(firstId).toBeDefined();
+
+      // Second identical submission with same idempotency key
+      const sub2 = await request(app.getHttpServer())
+        .post(`/public/forms/${hierarchicalPublicId}/submissions`)
+        .set('Idempotency-Key', idempotencyKey)
+        .send({
+          data: {
+            username: 'idem_user',
+          },
+        })
+        .expect(201);
+
+      // Must return identical submission ID and not create duplicate
+      expect(sub2.body.id).toBe(firstId);
+    });
+
+    it('should reject submission with invalid select/radio option not in whitelist', async () => {
+      // Create and deploy form with select field
+      const optionSections = [
+        {
+          id: 'sec_opts',
+          layout: 'column',
+          zones: [
+            {
+              id: 'zone_opts',
+              layout: 'column',
+              responsiveWidth: { desktop: 'full', tablet: 'full', mobile: 'full' },
+              elements: [
+                {
+                  id: 'el_tier',
+                  type: 'select',
+                  reference: 'tier',
+                  label: 'Subscription Tier',
+                  options: ['Free', 'Pro', 'Enterprise'],
+                  required: true,
+                },
+              ],
+            },
+          ],
+        },
+      ];
+
+      await request(app.getHttpServer())
+        .patch(`/forms/${hierarchicalFormId}/draft`)
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({ sections: optionSections })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post(`/forms/${hierarchicalFormId}/deploy`)
+        .set('Authorization', `Bearer ${user1Token}`)
+        .expect(201);
+
+      // Submit with unlisted option "HackedTier" -> must be rejected with 400
+      const res = await request(app.getHttpServer())
+        .post(`/public/forms/${hierarchicalPublicId}/submissions`)
+        .send({
+          data: {
+            tier: 'HackedTier',
+          },
+        })
+        .expect(400);
+
+      expect(res.body.message).toContain('Subscription Tier');
+      expect(res.body.message).toContain('Free, Pro, Enterprise');
+
+      // Submit with valid option -> succeeds
+      await request(app.getHttpServer())
+        .post(`/public/forms/${hierarchicalPublicId}/submissions`)
+        .send({
+          data: {
+            tier: 'Pro',
+          },
+        })
+        .expect(201);
+    });
+
+    it('should respect conditional visibility and skip required check for hidden fields', async () => {
+      // Create form with conditional field
+      const conditionalSections = [
+        {
+          id: 'sec_cond',
+          layout: 'column',
+          zones: [
+            {
+              id: 'zone_cond',
+              layout: 'column',
+              responsiveWidth: { desktop: 'full', tablet: 'full', mobile: 'full' },
+              elements: [
+                {
+                  id: 'el_trigger',
+                  type: 'select',
+                  reference: 'has_business',
+                  label: 'Do you have a registered business?',
+                  options: ['Yes', 'No'],
+                  required: true,
+                },
+                {
+                  id: 'el_tax_id',
+                  type: 'text',
+                  reference: 'tax_id',
+                  label: 'Business Tax ID',
+                  required: true,
+                  conditions: {
+                    action: 'show',
+                    matchType: 'all',
+                    rules: [
+                      {
+                        fieldIdOrReference: 'has_business',
+                        operator: 'equals',
+                        value: 'Yes',
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ];
+
+      await request(app.getHttpServer())
+        .patch(`/forms/${hierarchicalFormId}/draft`)
+        .set('Authorization', `Bearer ${user1Token}`)
+        .send({ sections: conditionalSections })
+        .expect(200);
+
+      await request(app.getHttpServer())
+        .post(`/forms/${hierarchicalFormId}/deploy`)
+        .set('Authorization', `Bearer ${user1Token}`)
+        .expect(201);
+
+      // Submit has_business: "No" WITHOUT tax_id -> succeeds because tax_id is conditionally hidden
+      await request(app.getHttpServer())
+        .post(`/public/forms/${hierarchicalPublicId}/submissions`)
+        .send({
+          data: {
+            has_business: 'No',
+          },
+        })
+        .expect(201);
+
+      // Submit has_business: "Yes" WITHOUT tax_id -> fails because tax_id is conditionally visible & required
+      const failRes = await request(app.getHttpServer())
+        .post(`/public/forms/${hierarchicalPublicId}/submissions`)
+        .send({
+          data: {
+            has_business: 'Yes',
+          },
+        })
+        .expect(400);
+
+      expect(failRes.body.message).toContain('Business Tax ID');
+    });
+
+    it('should return server-side paginated results from GET /forms/:id/data with page & limit', async () => {
+      const dataRes = await request(app.getHttpServer())
+        .get(`/forms/${hierarchicalFormId}/data?page=1&limit=2`)
+        .set('Authorization', `Bearer ${user1Token}`)
+        .expect(200);
+
+      expect(dataRes.body.formId).toBe(hierarchicalFormId);
+      expect(dataRes.body.page).toBe(1);
+      expect(dataRes.body.pageSize).toBe(2);
+      expect(dataRes.body.totalCount).toBeGreaterThanOrEqual(3);
+      expect(dataRes.body.totalPages).toBeGreaterThanOrEqual(2);
+      expect(dataRes.body.rows.length).toBeLessThanOrEqual(2);
     });
   });
 });

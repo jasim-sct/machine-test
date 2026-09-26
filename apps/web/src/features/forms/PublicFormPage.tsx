@@ -81,7 +81,8 @@ export const PublicFormPage: React.FC = () => {
 
     for (const el of allFields) {
       const key = el.reference || el.id;
-      const val = formData[key] !== undefined ? formData[key] : formData[el.id];
+      const rawVal = formData[key] !== undefined ? formData[key] : formData[el.id];
+      const val = rawVal !== undefined ? rawVal : el.defaultValue;
 
       // Required check
       if (el.required) {
@@ -153,8 +154,9 @@ export const PublicFormPage: React.FC = () => {
     const submissionPayload: Record<string, any> = {};
     for (const el of allFields) {
       const primaryKey = el.reference || el.id;
-      const val = formData[primaryKey] !== undefined ? formData[primaryKey] : formData[el.id];
-      if (val !== undefined) {
+      const rawVal = formData[primaryKey] !== undefined ? formData[primaryKey] : formData[el.id];
+      const val = rawVal !== undefined ? rawVal : el.defaultValue;
+      if (val !== undefined && val !== null) {
         submissionPayload[primaryKey] = val;
       }
     }

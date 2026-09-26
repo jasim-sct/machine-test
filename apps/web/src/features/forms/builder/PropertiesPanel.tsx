@@ -1021,6 +1021,39 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
               </FormField>
             )}
 
+            {/* Default Value for text-based fields */}
+            {['text', 'email', 'phone', 'textarea', 'date'].includes(element.type) && (
+              <FormField style={{ margin: 0 }}>
+                <FormLabel htmlFor="field-default-value">Default Value</FormLabel>
+                <Input
+                  id="field-default-value"
+                  value={element.defaultValue ?? ''}
+                  onChange={(e) => handleUpdateElement({ defaultValue: e.target.value })}
+                  placeholder="Initial default value..."
+                  style={{ height: '30px', fontSize: '12px' }}
+                />
+              </FormField>
+            )}
+
+            {/* Default Value for number field */}
+            {element.type === 'number' && (
+              <FormField style={{ margin: 0 }}>
+                <FormLabel htmlFor="field-default-value">Default Value</FormLabel>
+                <Input
+                  id="field-default-value"
+                  type="number"
+                  value={element.defaultValue ?? ''}
+                  onChange={(e) =>
+                    handleUpdateElement({
+                      defaultValue: e.target.value === '' ? undefined : Number(e.target.value),
+                    })
+                  }
+                  placeholder="e.g. 0"
+                  style={{ height: '30px', fontSize: '12px' }}
+                />
+              </FormField>
+            )}
+
             {/* Heading Level for Title */}
             {element.type === 'title' && (
               <FormField style={{ margin: 0 }}>
@@ -1112,6 +1145,51 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                     </span>
                   </Button>
                 </div>
+
+                {/* Default Option for Select / Radio */}
+                {!element.multiple && (
+                  <FormField style={{ margin: '8px 0 0 0' }}>
+                    <FormLabel htmlFor="field-default-option">Default Selection</FormLabel>
+                    <Select
+                      id="field-default-option"
+                      value={element.defaultValue || ''}
+                      onChange={(e) => handleUpdateElement({ defaultValue: e.target.value || undefined })}
+                      style={{ height: '30px', fontSize: '12px' }}
+                    >
+                      <option value="">-- No Default Selection --</option>
+                      {(element.options || []).map((opt, idx) => (
+                        <option key={idx} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
+                )}
+              </div>
+            )}
+
+            {/* Checkbox Default Checked */}
+            {element.type === 'checkbox' && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '6px 8px',
+                  backgroundColor: 'var(--color-bg-primary)',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--color-border)',
+                }}
+              >
+                <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--color-text-primary)' }}>
+                  Checked by Default
+                </span>
+                <input
+                  type="checkbox"
+                  checked={Boolean(element.defaultValue)}
+                  onChange={(e) => handleUpdateElement({ defaultValue: e.target.checked })}
+                  style={{ width: '16px', height: '16px', accentColor: 'var(--color-primary)', cursor: 'pointer' }}
+                />
               </div>
             )}
 

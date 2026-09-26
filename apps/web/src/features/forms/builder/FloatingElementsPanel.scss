@@ -189,9 +189,13 @@
 
   &__drag-hint {
     font-size: 16px;
-    color: #94a3b8;
-    opacity: 0.4;
-    transition: opacity 0.15s ease;
+    color: #475569;
+    opacity: 0.85;
+    background: rgba(15, 23, 42, 0.05);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 4px;
+    padding: 2px;
+    transition: all 0.15s ease;
     flex-shrink: 0;
   }
 }

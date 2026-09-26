@@ -79,6 +79,12 @@
 
     &--column {
       flex-direction: column;
+
+      > .public-element-wrapper {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
     }
 
     &--row {

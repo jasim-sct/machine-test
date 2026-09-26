@@ -5,6 +5,7 @@ import {
   LayoutDirection,
   getZoneWidthPercent,
   getZoneFlexStyles,
+  evaluateConditionGroup,
 } from '@saas/shared';
 import { FieldElement } from '../../../components';
 import { scopeCss } from '../builder/scopeCss';
@@ -62,117 +63,136 @@ export const PublicFormView: React.FC<PublicFormViewProps> = ({
       <form onSubmit={onSubmit} noValidate className="public-form-body">
         {sections.length > 0 ? (
           <div className={`public-sections-container public-sections-container--${formLayout}`}>
-            {sections.map((section) => (
-              <div
-                key={section.id}
-                className="public-section-card"
-                style={{
-                  width: section.customWidth || undefined,
-                  maxWidth: '100%',
-                  minHeight: section.customHeight || undefined,
-                  boxSizing: 'border-box',
-                }}
-              >
-                {section.title && (
-                  <h2 className="public-section-title">
-                    {section.title}
-                  </h2>
-                )}
+            {sections
+              .filter((section) => evaluateConditionGroup(section.conditions, values))
+              .map((section) => (
+                <div
+                  key={section.id}
+                  className="public-section-card"
+                  style={{
+                    width: section.customWidth || undefined,
+                    maxWidth: '100%',
+                    minHeight: section.customHeight || undefined,
+                    boxSizing: 'border-box',
+                  }}
+                >
+                  {section.title && (
+                    <h2 className="public-section-title">
+                      {section.title}
+                    </h2>
+                  )}
 
-                <div className={`public-zones-container public-zones-container--${section.layout}`}>
-                  {section.zones.map((zone) => {
-                    const preset = zone.responsiveWidth[previewDevice] || 'full';
-                    const customVal =
-                      previewDevice === 'desktop'
-                        ? zone.responsiveWidth.desktopCustom
-                        : previewDevice === 'tablet'
-                        ? zone.responsiveWidth.tabletCustom
-                        : zone.responsiveWidth.mobileCustom;
+                  <div className={`public-zones-container public-zones-container--${section.layout}`}>
+                    {section.zones
+                      .filter((zone) => evaluateConditionGroup(zone.conditions, values))
+                      .map((zone) => {
+                        const preset = zone.responsiveWidth[previewDevice] || 'full';
+                        const customVal =
+                          previewDevice === 'desktop'
+                            ? zone.responsiveWidth.desktopCustom
+                            : previewDevice === 'tablet'
+                            ? zone.responsiveWidth.tabletCustom
+                            : zone.responsiveWidth.mobileCustom;
 
-                    const widthPercent = getZoneWidthPercent(preset, customVal);
-                    const gapRatio = (1 - widthPercent / 100).toFixed(4);
-                    const calcWidth =
-                      widthPercent >= 100
-                        ? '100%'
-                        : `calc(${widthPercent}% - (var(--space-3) * ${gapRatio}))`;
+                        const widthPercent = getZoneWidthPercent(preset, customVal);
+                        const gapRatio = (1 - widthPercent / 100).toFixed(4);
+                        const calcWidth =
+                          widthPercent >= 100
+                            ? '100%'
+                            : `calc(${widthPercent}% - (var(--space-3) * ${gapRatio}))`;
 
-                    const zoneFlex = getZoneFlexStyles(
-                      zone.layout,
-                      zone.alignment,
-                      zone.horizontalAlign,
-                      zone.verticalAlign,
-                    );
+                        const zoneFlex = getZoneFlexStyles(
+                          zone.layout,
+                          zone.alignment,
+                          zone.horizontalAlign,
+                          zone.verticalAlign,
+                        );
 
-                    const zoneStyle: React.CSSProperties = {
-                      ...(section.layout === 'row'
-                        ? { flex: `0 0 ${calcWidth}`, width: calcWidth, maxWidth: calcWidth }
-                        : { width: '100%' }),
-                      minHeight: zone.customHeight || undefined,
-                      boxSizing: 'border-box',
-                      ...zoneFlex,
-                    };
+                        const zoneStyle: React.CSSProperties = {
+                          ...(section.layout === 'row'
+                            ? { flex: `0 0 ${calcWidth}`, width: calcWidth, maxWidth: calcWidth }
+                            : { width: '100%' }),
+                          minHeight: zone.customHeight || undefined,
+                          boxSizing: 'border-box',
+                          ...zoneFlex,
+                        };
 
-                    return (
-                      <div key={zone.id} className="public-zone-card" style={zoneStyle}>
-                        <div className={`public-elements-container public-elements-container--${zone.layout}`}>
-                          {zone.elements.map((element) => {
-                            const fieldKey = element.reference || element.id;
-                            const fieldValue = values[fieldKey] !== undefined ? values[fieldKey] : values[element.id];
-                            const fieldError = errors[fieldKey] || errors[element.id];
+                        return (
+                          <div key={zone.id} className="public-zone-card" style={zoneStyle}>
+                            <div className={`public-elements-container public-elements-container--${zone.layout}`}>
+                              {zone.elements
+                                .filter((element) => evaluateConditionGroup(element.conditions, values))
+                                .map((element) => {
+                                  const fieldKey = element.reference || element.id;
+                                  const rawVal = values[fieldKey] !== undefined ? values[fieldKey] : values[element.id];
+                                  const fieldValue = rawVal !== undefined ? rawVal : element.defaultValue;
+                                  const fieldError = errors[fieldKey] || errors[element.id];
 
-                            return (
-                              <div
-                                key={element.id}
-                                className="public-element-wrapper"
-                                style={{
-                                  width: element.customWidth || undefined,
-                                  maxWidth: '100%',
-                                  minHeight: element.customHeight || undefined,
-                                  boxSizing: 'border-box',
-                                }}
-                              >
-                                <FieldElement
-                                  element={element}
-                                  value={fieldValue}
-                                  onChange={(val) => onChange(fieldKey, val)}
-                                  error={fieldError}
-                                  disabled={disabled || isSubmitting}
-                                  onButtonClick={
-                                    element.type === 'button' && element.buttonAction === 'submit'
-                                      ? undefined
-                                      : () => {}
-                                  }
-                                />
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
+                                  return (
+                                    <div
+                                      key={element.id}
+                                      className="public-element-wrapper"
+                                      style={{
+                                        width: element.customWidth || '100%',
+                                        maxWidth: '100%',
+                                        minHeight: element.customHeight || undefined,
+                                        boxSizing: 'border-box',
+                                      }}
+                                    >
+                                      <FieldElement
+                                        element={element}
+                                        value={fieldValue}
+                                        onChange={(val) => onChange(fieldKey, val)}
+                                        error={fieldError}
+                                        disabled={disabled || isSubmitting}
+                                        onButtonClick={
+                                          element.type === 'button' && element.buttonAction === 'submit'
+                                            ? undefined
+                                            : () => {}
+                                        }
+                                      />
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
         ) : (
           <div className="public-elements-container public-elements-container--column">
-            {elements.map((element) => {
-              const fieldKey = element.reference || element.id;
-              const fieldValue = values[fieldKey] !== undefined ? values[fieldKey] : values[element.id];
-              const fieldError = errors[fieldKey] || errors[element.id];
+            {elements
+              .filter((element) => evaluateConditionGroup(element.conditions, values))
+              .map((element) => {
+                const fieldKey = element.reference || element.id;
+                const rawVal = values[fieldKey] !== undefined ? values[fieldKey] : values[element.id];
+                const fieldValue = rawVal !== undefined ? rawVal : element.defaultValue;
+                const fieldError = errors[fieldKey] || errors[element.id];
 
-              return (
-                <div key={element.id} className="public-element-wrapper">
-                  <FieldElement
-                    element={element}
-                    value={fieldValue}
-                    onChange={(val) => onChange(fieldKey, val)}
-                    error={fieldError}
-                    disabled={disabled || isSubmitting}
-                  />
-                </div>
-              );
-            })}
+                return (
+                  <div
+                    key={element.id}
+                    className="public-element-wrapper"
+                    style={{
+                      width: element.customWidth || '100%',
+                      maxWidth: '100%',
+                      minHeight: element.customHeight || undefined,
+                      boxSizing: 'border-box',
+                    }}
+                  >
+                    <FieldElement
+                      element={element}
+                      value={fieldValue}
+                      onChange={(val) => onChange(fieldKey, val)}
+                      error={fieldError}
+                      disabled={disabled || isSubmitting}
+                    />
+                  </div>
+                );
+              })}
           </div>
         )}
 

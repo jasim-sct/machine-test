@@ -36,30 +36,42 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
 
+    const updates: Record<string, any> = {};
+
     if (dto.email && dto.email.toLowerCase().trim() !== user.email) {
       const targetEmail = dto.email.toLowerCase().trim();
       const existing = await this.findByEmail(targetEmail);
       if (existing && existing._id.toString() !== user._id.toString()) {
         throw new ConflictException('Email address is already in use by another account');
       }
-      user.email = targetEmail;
+      updates.email = targetEmail;
     }
 
     if (dto.name && dto.name.trim()) {
-      user.name = dto.name.trim();
+      updates.name = dto.name.trim();
     }
 
-    return user.save();
+    const updated = await this.userModel.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true },
+    );
+    if (!updated) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    return updated;
   }
 
   async updateStatus(id: string, status: UserStatus): Promise<UserDocument> {
-    const user = await this.userModel.findById(id);
+    const user = await this.userModel.findByIdAndUpdate(
+      id,
+      { $set: { status } },
+      { new: true },
+    );
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
-
-    user.status = status;
-    return user.save();
+    return user;
   }
 
   async incrementTokenVersion(id: string): Promise<UserDocument> {

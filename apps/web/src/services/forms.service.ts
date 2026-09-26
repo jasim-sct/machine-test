@@ -5,6 +5,7 @@ import {
   FormDataViewDto,
   FormDto,
   FormVersionDto,
+  GetFormDataQueryDto,
   PublicFormDto,
   UpdateDraftDto,
   UpdateVersionDto,
@@ -61,8 +62,18 @@ export const formsService = {
     return api.patch<FormDto>(`/forms/${id}/settings`, dto);
   },
 
-  getDataView: async (id: string): Promise<FormDataViewDto> => {
-    return api.get<FormDataViewDto>(`/forms/${id}/data`);
+  getDataView: async (id: string, query?: GetFormDataQueryDto): Promise<FormDataViewDto> => {
+    const params = new URLSearchParams();
+    if (query?.page) params.append('page', query.page.toString());
+    if (query?.limit) params.append('limit', query.limit.toString());
+    if (query?.sortField) params.append('sortField', query.sortField);
+    if (query?.sortDirection) params.append('sortDirection', query.sortDirection);
+    if (query?.versionFilter && query.versionFilter !== 'all') params.append('versionFilter', query.versionFilter);
+    if (query?.search) params.append('search', query.search);
+
+    const queryString = params.toString();
+    const url = `/forms/${id}/data${queryString ? `?${queryString}` : ''}`;
+    return api.get<FormDataViewDto>(url);
   },
 
   getPublic: async (publicId: string): Promise<PublicFormDto> => {
@@ -72,9 +83,16 @@ export const formsService = {
   submitPublic: async (
     publicId: string,
     data: Record<string, any>,
+    idempotencyKey?: string,
   ): Promise<{ message: string; id: string }> => {
-    return api.post<{ message: string; id: string }>(`/public/forms/${publicId}/submissions`, {
-      data,
-    });
+    const headers: Record<string, string> = {};
+    if (idempotencyKey) {
+      headers['Idempotency-Key'] = idempotencyKey;
+    }
+    return api.post<{ message: string; id: string }>(
+      `/public/forms/${publicId}/submissions`,
+      { data },
+      headers,
+    );
   },
 };

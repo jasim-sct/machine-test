@@ -69,7 +69,8 @@ export const FormPreviewModal: React.FC<FormPreviewModalProps> = ({
 
     for (const field of dataFields) {
       const key = field.reference || field.id;
-      const val = testValues[key] !== undefined ? testValues[key] : testValues[field.id];
+      const rawVal = testValues[key] !== undefined ? testValues[key] : testValues[field.id];
+      const val = rawVal !== undefined ? rawVal : field.defaultValue;
 
       // Required validation
       if (field.required) {

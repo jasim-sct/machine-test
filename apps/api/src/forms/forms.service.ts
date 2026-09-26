@@ -24,6 +24,7 @@ import {
   checkDuplicateReferences,
   extractAllElements,
   getRealisticDefaultForm,
+  sanitizeCustomCss,
 } from '@saas/shared';
 import { AuditService } from '../infrastructure/audit/audit.service';
 import { validateSafeUrl } from '../common/utils/ssrf-protection';
@@ -350,7 +351,7 @@ export class FormsService {
     const elements = dto.elements !== undefined ? dto.elements : currentDraft.elements;
     const sections = dto.sections !== undefined ? dto.sections : currentDraft.sections;
     const formLayout = dto.formLayout !== undefined ? dto.formLayout : currentDraft.formLayout;
-    const customCss = dto.customCss !== undefined ? dto.customCss : currentDraft.customCss;
+    const customCss = dto.customCss !== undefined ? sanitizeCustomCss(dto.customCss) : currentDraft.customCss;
 
     form.draft = {
       title,

@@ -543,6 +543,9 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                     {/* Section Header Bar with Title & Delete Action */}
                     <div className="canvas-section-header">
                       <div className="canvas-section-header-left">
+                        <span className="canvas-drag-grip" title="Drag to reorder section">
+                          <span className="material-icon">drag_indicator</span>
+                        </span>
                         <span className="canvas-badge canvas-badge--section">
                           <span className="material-icon">folder_open</span>
                           {section.title ? section.title : `Section ${secIdx + 1}`}
@@ -701,6 +704,9 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                                 {/* Zone Header Bar with Tag & Delete Action */}
                                 <div className="canvas-zone-header">
                                   <div className="canvas-zone-header-left">
+                                    <span className="canvas-drag-grip" title="Drag to reorder zone">
+                                      <span className="material-icon">drag_indicator</span>
+                                    </span>
                                     <span className="canvas-badge canvas-badge--zone">
                                       <span className="material-icon">view_column</span>
                                       {zoneLabel}
@@ -788,7 +794,7 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                                               isDraggingThisElement ? 'canvas-element-item--dragging' : ''
                                             }`}
                                             style={{
-                                              width: element.customWidth || undefined,
+                                              width: element.customWidth || '100%',
                                               maxWidth: '100%',
                                               minHeight: element.customHeight || undefined,
                                               boxSizing: 'border-box',
@@ -824,22 +830,34 @@ export const FormCanvasHierarchical: React.FC<FormCanvasHierarchicalProps> = ({
                                             }}
                                             onClick={(e) => handleElementClick(e, section.id, zone.id, element.id)}
                                           >
-                                            {/* Element Top-Right Delete Action */}
-                                            {onDeleteElement && (
-                                              <button
-                                                type="button"
-                                                className="canvas-action-delete canvas-action-delete--element"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  onDeleteElement(section.id, zone.id, element.id);
-                                                }}
-                                                title="Delete Field"
-                                                aria-label="Delete Field"
-                                                id={`btn-delete-element-${element.id}`}
-                                              >
-                                                <span className="material-icon">delete</span>
-                                              </button>
-                                            )}
+                                            {/* Element Top Bar with Drag Grip & Actions */}
+                                            <div className="canvas-element-header">
+                                              <div className="canvas-element-header-left">
+                                                <span className="canvas-element-drag-handle" title="Drag to reorder field">
+                                                  <span className="material-icon">drag_indicator</span>
+                                                </span>
+                                                <span className="canvas-element-type-tag">
+                                                  {element.type.toUpperCase()}
+                                                </span>
+                                              </div>
+                                              <div className="canvas-element-header-right">
+                                                {onDeleteElement && (
+                                                  <button
+                                                    type="button"
+                                                    className="canvas-action-delete canvas-action-delete--element"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      onDeleteElement(section.id, zone.id, element.id);
+                                                    }}
+                                                    title="Delete Field"
+                                                    aria-label="Delete Field"
+                                                    id={`btn-delete-element-${element.id}`}
+                                                  >
+                                                    <span className="material-icon">delete</span>
+                                                  </button>
+                                                )}
+                                              </div>
+                                            </div>
 
                                             {/* Live Rendered Control with Input Interaction Disabled */}
                                             <div className="canvas-element-content" style={{ pointerEvents: 'none', userSelect: 'none', width: '100%' }}>

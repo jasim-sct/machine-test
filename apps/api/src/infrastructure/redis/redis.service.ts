@@ -7,6 +7,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RedisService.name);
   private client: Redis | null = null;
   private isConnected = false;
+  private memoryStore = new Map<string, { value: string; expiresAt?: number }>();
 
   constructor(private readonly secretsService: SecretsService) {}
 
@@ -20,6 +21,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       this.client = null;
       this.isConnected = false;
     }
+    this.memoryStore.clear();
   }
 
   private async initRedis() {
@@ -78,44 +80,88 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async ping(): Promise<boolean> {
-    if (!this.client || !this.isConnected) return false;
-    try {
-      const res = await this.client.ping();
-      return res === 'PONG';
-    } catch {
-      return false;
+    if (this.isAvailable()) {
+      try {
+        const res = await this.client!.ping();
+        return res === 'PONG';
+      } catch {
+        return false;
+      }
     }
+    return true; // In-memory always healthy
   }
 
   async get(key: string): Promise<string | null> {
-    if (!this.isAvailable()) return null;
-    try {
-      return await this.client!.get(key);
-    } catch (err: any) {
-      this.logger.warn(`Redis GET failed for key "${key}": ${err.message}`);
+    if (this.isAvailable()) {
+      try {
+        return await this.client!.get(key);
+      } catch (err: any) {
+        this.logger.warn(`Redis GET failed for key "${key}": ${err.message}`);
+      }
+    }
+
+    // In-memory fallback
+    const entry = this.memoryStore.get(key);
+    if (!entry) return null;
+    if (entry.expiresAt && Date.now() > entry.expiresAt) {
+      this.memoryStore.delete(key);
       return null;
     }
+    return entry.value;
   }
 
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
-    if (!this.isAvailable()) return;
-    try {
-      if (ttlSeconds && ttlSeconds > 0) {
-        await this.client!.set(key, value, 'EX', ttlSeconds);
-      } else {
-        await this.client!.set(key, value);
+    if (this.isAvailable()) {
+      try {
+        if (ttlSeconds && ttlSeconds > 0) {
+          await this.client!.set(key, value, 'EX', ttlSeconds);
+        } else {
+          await this.client!.set(key, value);
+        }
+        return;
+      } catch (err: any) {
+        this.logger.warn(`Redis SET failed for key "${key}": ${err.message}`);
       }
-    } catch (err: any) {
-      this.logger.warn(`Redis SET failed for key "${key}": ${err.message}`);
     }
+
+    // In-memory fallback
+    this.memoryStore.set(key, {
+      value,
+      expiresAt: ttlSeconds && ttlSeconds > 0 ? Date.now() + ttlSeconds * 1000 : undefined,
+    });
+  }
+
+  async setNx(key: string, value: string, ttlSeconds: number): Promise<boolean> {
+    if (this.isAvailable()) {
+      try {
+        const res = await this.client!.set(key, value, 'EX', ttlSeconds, 'NX');
+        return res === 'OK';
+      } catch (err: any) {
+        this.logger.warn(`Redis SET NX failed for key "${key}": ${err.message}`);
+      }
+    }
+
+    // In-memory fallback
+    const existing = this.memoryStore.get(key);
+    if (existing && (!existing.expiresAt || Date.now() <= existing.expiresAt)) {
+      return false; // Key already exists
+    }
+
+    this.memoryStore.set(key, {
+      value,
+      expiresAt: ttlSeconds && ttlSeconds > 0 ? Date.now() + ttlSeconds * 1000 : undefined,
+    });
+    return true;
   }
 
   async del(key: string): Promise<void> {
-    if (!this.isAvailable()) return;
-    try {
-      await this.client!.del(key);
-    } catch (err: any) {
-      this.logger.warn(`Redis DEL failed for key "${key}": ${err.message}`);
+    if (this.isAvailable()) {
+      try {
+        await this.client!.del(key);
+      } catch (err: any) {
+        this.logger.warn(`Redis DEL failed for key "${key}": ${err.message}`);
+      }
     }
+    this.memoryStore.delete(key);
   }
 }

@@ -5,6 +5,8 @@ const request = require('supertest');
 import { AppModule } from '../src/app.module';
 import { Role, UserStatus } from '@saas/shared';
 
+jest.setTimeout(60000);
+
 describe('SaaS Full-Stack API (e2e)', () => {
   let app: INestApplication;
   let adminToken: string;

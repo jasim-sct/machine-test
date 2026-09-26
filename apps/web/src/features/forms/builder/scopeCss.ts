@@ -1,3 +1,5 @@
+import { sanitizeCustomCss } from '@saas/shared';
+
 /**
  * Safely scope CSS rules to a specific container selector to prevent
  * user-defined custom styles from leaking into the builder UI or other forms.
@@ -5,7 +7,7 @@
 export function scopeCss(rawCss: string, scopeSelector: string): string {
   if (!rawCss || !rawCss.trim()) return '';
 
-  const cleanCss = rawCss.trim();
+  const cleanCss = sanitizeCustomCss(rawCss).trim();
   const trimmedScope = scopeSelector.trim();
 
   // Helper to prefix comma-separated selectors

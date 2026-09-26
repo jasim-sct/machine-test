@@ -51,6 +51,28 @@ export interface FieldValidation {
   max?: number;
 }
 
+export type ConditionOperator =
+  | 'equals'
+  | 'not_equals'
+  | 'contains'
+  | 'not_contains'
+  | 'greater_than'
+  | 'less_than'
+  | 'is_empty'
+  | 'is_not_empty';
+
+export interface FieldConditionRule {
+  fieldIdOrReference: string;
+  operator: ConditionOperator;
+  value?: any;
+}
+
+export interface FieldConditionGroup {
+  action: 'show' | 'hide';
+  matchType: 'all' | 'any';
+  rules: FieldConditionRule[];
+}
+
 export interface FormElement {
   id: string;
   type: FormElementType;
@@ -71,6 +93,7 @@ export interface FormElement {
   content?: string; // for title, description, alert
   alertVariant?: 'info' | 'warning' | 'success'; // for alert
   validation?: FieldValidation;
+  conditions?: FieldConditionGroup;
   colSpan?: number; // legacy backward compatibility
   customWidth?: string; // e.g. '100%', '50%', '300px' (max-width capped at 100%)
   customHeight?: string; // e.g. '40px', '120px', 'auto'
@@ -111,6 +134,7 @@ export interface FormZone {
   verticalAlign?: VerticalAlignment;
   customWidth?: string;
   customHeight?: string;
+  conditions?: FieldConditionGroup;
   elements: FormElement[];
 }
 
@@ -124,6 +148,7 @@ export interface FormSection {
   verticalAlign?: VerticalAlignment;
   customWidth?: string;
   customHeight?: string;
+  conditions?: FieldConditionGroup;
   zones: FormZone[];
 }
 
@@ -281,6 +306,29 @@ export interface FormDataViewDto {
   columns: FormDataColumnDto[];
   rows: FormDataRowDto[];
   totalCount: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
+}
+
+export interface GetFormDataQueryDto {
+  page?: number;
+  limit?: number;
+  sortField?: string;
+  sortDirection?: 'asc' | 'desc';
+  versionFilter?: string;
+  search?: string;
+}
+
+export function sanitizeCustomCss(rawCss?: string): string {
+  if (!rawCss) return '';
+  return rawCss
+    .replace(/<\/?style[^>]*>/gi, '')
+    .replace(/<\/?script[^>]*>/gi, '')
+    .replace(/javascript\s*:/gi, '')
+    .replace(/expression\s*\(/gi, '')
+    .replace(/@import\s+[^;]+;/gi, '')
+    .replace(/url\s*\(\s*["']?\s*(?:javascript|data:text\/html)/gi, 'url(');
 }
 
 // ---------------------------------------------------------------------------
@@ -593,7 +641,7 @@ export function formatSubmissionData(
   for (const el of elements) {
     if (!isDataField(el.type)) continue;
     const key = el.reference || el.id;
-    const rawVal = rawValues[key] !== undefined ? rawValues[key] : rawValues[el.id];
+    const rawVal = rawValues[key] !== undefined ? rawValues[key] : (rawValues[el.id] !== undefined ? rawValues[el.id] : el.defaultValue);
     if (rawVal === undefined || rawVal === null || rawVal === '') continue;
 
     const dataType = el.dataType || getDataTypeForElementType(el.type);
@@ -676,3 +724,47 @@ export function getZoneFlexStyles(
 
   return { justifyContent, alignItems };
 }
+
+export function evaluateConditionGroup(
+  conditions: FieldConditionGroup | undefined,
+  formValues: Record<string, any>,
+): boolean {
+  if (!conditions || !conditions.rules || conditions.rules.length === 0) {
+    return true;
+  }
+
+  const { action, matchType, rules } = conditions;
+
+  const ruleResults = rules.map((rule) => {
+    const rawVal = formValues[rule.fieldIdOrReference];
+    const valStr = rawVal !== undefined && rawVal !== null ? String(rawVal) : '';
+    const targetStr = rule.value !== undefined && rule.value !== null ? String(rule.value) : '';
+
+    switch (rule.operator) {
+      case 'equals':
+        return valStr.trim().toLowerCase() === targetStr.trim().toLowerCase();
+      case 'not_equals':
+        return valStr.trim().toLowerCase() !== targetStr.trim().toLowerCase();
+      case 'contains':
+        return valStr.toLowerCase().includes(targetStr.toLowerCase());
+      case 'not_contains':
+        return !valStr.toLowerCase().includes(targetStr.toLowerCase());
+      case 'greater_than':
+        return Number(valStr) > Number(targetStr);
+      case 'less_than':
+        return Number(valStr) < Number(targetStr);
+      case 'is_empty':
+        return valStr.trim() === '' || (Array.isArray(rawVal) && rawVal.length === 0);
+      case 'is_not_empty':
+        return valStr.trim() !== '' && (!Array.isArray(rawVal) || rawVal.length > 0);
+      default:
+        return true;
+    }
+  });
+
+  const isMatch =
+    matchType === 'any' ? ruleResults.some(Boolean) : ruleResults.every(Boolean);
+
+  return action === 'show' ? isMatch : !isMatch;
+}
+

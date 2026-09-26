@@ -530,6 +530,7 @@ export const FormEditorPage: React.FC = () => {
           ? defaultLabel
           : undefined,
       validation: defaultValidation,
+      customWidth: '100%',
     };
 
     const elementsCopy = [...zone.elements];

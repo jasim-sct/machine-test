@@ -227,6 +227,14 @@ export const FieldElement: React.FC<FieldElementProps> = ({
     boxSizing: 'border-box',
   };
 
+  // Determine effective value:
+  // If `value` prop is explicitly provided (not undefined and not null), use it.
+  // Otherwise, fall back to element.defaultValue.
+  const hasProvidedValue = value !== undefined && value !== null;
+  const effectiveValue = hasProvidedValue
+    ? value
+    : (element.defaultValue !== undefined && element.defaultValue !== null ? element.defaultValue : '');
+
   return (
     <FormField style={fieldStyle}>
       <FormLabel htmlFor={fieldId} required={element.required}>
@@ -242,7 +250,7 @@ export const FieldElement: React.FC<FieldElementProps> = ({
           id={fieldId}
           type={element.type === 'number' ? 'number' : element.type === 'email' ? 'email' : element.type === 'phone' ? 'tel' : 'text'}
           placeholder={element.placeholder || ''}
-          value={value !== undefined && value !== null ? value : ''}
+          value={effectiveValue}
           onChange={handleChange}
           disabled={disabled}
           required={element.required}
@@ -262,7 +270,7 @@ export const FieldElement: React.FC<FieldElementProps> = ({
         <Textarea
           id={fieldId}
           placeholder={element.placeholder || ''}
-          value={value !== undefined && value !== null ? value : ''}
+          value={effectiveValue}
           onChange={handleChange}
           disabled={disabled}
           required={element.required}
@@ -273,11 +281,11 @@ export const FieldElement: React.FC<FieldElementProps> = ({
         />
       )}
 
-      {/* SELECT */}
-      {element.type === 'select' && (
+      {/* SELECT (SINGLE & MULTI) */}
+      {element.type === 'select' && !element.multiple && (
         <Select
           id={fieldId}
-          value={value !== undefined && value !== null ? value : ''}
+          value={effectiveValue}
           onChange={handleChange}
           disabled={disabled}
           required={element.required}
@@ -294,12 +302,57 @@ export const FieldElement: React.FC<FieldElementProps> = ({
         </Select>
       )}
 
+      {element.type === 'select' && element.multiple && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
+          {(element.options || ['Option 1', 'Option 2', 'Option 3']).map((opt, idx) => {
+            const rawMulti = hasProvidedValue ? value : element.defaultValue;
+            const selectedList: string[] = Array.isArray(rawMulti)
+              ? rawMulti
+              : (rawMulti !== undefined && rawMulti !== null && rawMulti !== '')
+              ? [String(rawMulti)]
+              : [];
+            const isSelected = selectedList.includes(opt);
+            return (
+              <button
+                key={idx}
+                type="button"
+                disabled={disabled}
+                onClick={() => {
+                  if (!onChange) return;
+                  const updated = isSelected
+                    ? selectedList.filter((item) => item !== opt)
+                    : [...selectedList, opt];
+                  onChange(updated);
+                }}
+                style={{
+                  padding: 'var(--space-1.5) var(--space-3)',
+                  borderRadius: 'var(--radius-full)',
+                  fontSize: 'var(--font-size-xs)',
+                  fontWeight: 'var(--font-weight-medium)',
+                  border: isSelected ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
+                  backgroundColor: isSelected ? 'rgba(79, 70, 229, 0.1)' : 'var(--color-bg-secondary)',
+                  color: isSelected ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                  cursor: disabled ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {isSelected && <span className="material-icon" style={{ fontSize: '14px' }}>check</span>}
+                <span>{opt}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* DATE */}
       {element.type === 'date' && (
         <Input
           id={fieldId}
           type="date"
-          value={value !== undefined && value !== null ? value : ''}
+          value={effectiveValue}
           onChange={handleChange}
           disabled={disabled}
           required={element.required}
@@ -324,7 +377,7 @@ export const FieldElement: React.FC<FieldElementProps> = ({
             cloud_upload
           </span>
           <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)', marginBottom: 'var(--space-2)' }}>
-            {value ? `Selected file: ${value}` : 'Upload file from device'}
+            {value ? `Selected file: ${value}` : element.defaultValue ? `Default file: ${element.defaultValue}` : 'Upload file from device'}
           </div>
           <input
             id={fieldId}
@@ -332,7 +385,7 @@ export const FieldElement: React.FC<FieldElementProps> = ({
             onChange={handleChange}
             disabled={disabled}
             required={element.required}
-            style={{ fontSize: 'var(--font-size-xs)' }}
+            style={{ fontSize: 'var(--size-xs, 12px)' }}
           />
         </div>
       )}
@@ -341,7 +394,8 @@ export const FieldElement: React.FC<FieldElementProps> = ({
       {element.type === 'radio' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-1)' }}>
           {(element.options || ['Option 1', 'Option 2']).map((opt, idx) => {
-            const isChecked = value === opt;
+            const currentRadioVal = hasProvidedValue ? value : element.defaultValue;
+            const isChecked = currentRadioVal === opt;
             return (
               <label
                 key={idx}
@@ -361,7 +415,7 @@ export const FieldElement: React.FC<FieldElementProps> = ({
                   checked={isChecked}
                   onChange={() => onChange && onChange(opt)}
                   disabled={disabled}
-                  required={element.required && !value}
+                  required={element.required && !currentRadioVal}
                   style={{ cursor: disabled ? 'not-allowed' : 'pointer' }}
                 />
                 <span>{opt}</span>
@@ -387,7 +441,7 @@ export const FieldElement: React.FC<FieldElementProps> = ({
           <input
             id={fieldId}
             type="checkbox"
-            checked={Boolean(value)}
+            checked={Boolean(hasProvidedValue ? value : (element.defaultValue !== undefined ? element.defaultValue : false))}
             onChange={handleChange}
             disabled={disabled}
             required={element.required}

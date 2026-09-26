@@ -19,9 +19,12 @@ import {
   FormDataRowDto,
   FormElement,
   FormSection,
+  GetFormDataQueryDto,
+  evaluateConditionGroup,
 } from '@saas/shared';
 import { SubmitFormDto } from '../forms/dto/submit-form.dto';
 import { QueueService } from '../infrastructure/queue/queue.service';
+import { RedisService } from '../infrastructure/redis/redis.service';
 import { safeRegexTest } from '../common/utils/safe-regex';
 
 @Injectable()
@@ -31,6 +34,7 @@ export class SubmissionsService {
     @InjectModel(FormVersion.name) private readonly formVersionModel: Model<FormVersionDocument>,
     @InjectModel(FormSubmission.name) private readonly formSubmissionModel: Model<FormSubmissionDocument>,
     private readonly queueService: QueueService,
+    private readonly redisService: RedisService,
   ) {}
 
   private validateSubmissionPayload(data: Record<string, any>): void {
@@ -63,7 +67,26 @@ export class SubmissionsService {
     }
   }
 
-  async submit(publicId: string, dto: SubmitFormDto): Promise<{ message: string; id: string }> {
+  async submit(
+    publicId: string,
+    dto: SubmitFormDto,
+    idempotencyKey?: string,
+  ): Promise<{ message: string; id: string }> {
+    const redisIdempotencyKey = idempotencyKey && idempotencyKey.trim()
+      ? `saas:idempotency:${publicId}:${idempotencyKey.trim()}`
+      : null;
+
+    if (redisIdempotencyKey) {
+      const cached = await this.redisService.get(redisIdempotencyKey);
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch {
+          // fallback to processing if cached value corrupt
+        }
+      }
+    }
+
     const form = await this.formModel.findOne({ publicId }).exec();
     if (!form) {
       throw new NotFoundException(`Public form with ID "${publicId}" not found`);
@@ -124,6 +147,10 @@ export class SubmissionsService {
 
       if (!isDataField) continue;
 
+      // Skip validation if field is conditionally hidden
+      const isVisible = evaluateConditionGroup(el.conditions, submittedData);
+      if (!isVisible) continue;
+
       const fieldKey = el.reference || el.id;
       const rawVal = submittedData[fieldKey] !== undefined ? submittedData[fieldKey] : submittedData[el.id];
 
@@ -149,12 +176,29 @@ export class SubmissionsService {
           );
         }
       }
+
+      // Strict Option Validation for select and radio fields
+      if (
+        (el.type === 'select' || el.type === 'radio') &&
+        el.options &&
+        el.options.length > 0 &&
+        rawVal !== undefined &&
+        rawVal !== null &&
+        rawVal !== ''
+      ) {
+        const strVal = String(rawVal);
+        if (!el.options.includes(strVal)) {
+          throw new BadRequestException(
+            `Field "${el.label || el.name || fieldKey}" must be one of: [${el.options.join(', ')}]`,
+          );
+        }
+      }
     }
 
     // Derive tenant identity server-side from form
     const tenantId = form.tenantId || form.userId.toString();
 
-    // Canonicalize submitted data to eliminate redundant duplicated keys (e.g. element ID when reference is present)
+    // Canonicalize submitted data to eliminate redundant duplicated keys
     const canonicalData: Record<string, any> = {};
     for (const el of elements) {
       const isDataField =
@@ -171,18 +215,6 @@ export class SubmissionsService {
       const rawVal = submittedData[fieldKey] !== undefined ? submittedData[fieldKey] : submittedData[el.id];
       if (rawVal !== undefined) {
         canonicalData[fieldKey] = rawVal;
-      }
-    }
-
-    // Preserve any genuine custom dynamic fields that don't clash with mapped element IDs
-    for (const [key, value] of Object.entries(submittedData)) {
-      if (!(key in canonicalData)) {
-        const isElementIdOfMappedRef = elements.some(
-          (el) => el.id === key && el.reference && el.reference !== el.id,
-        );
-        if (!isElementIdOfMappedRef) {
-          canonicalData[key] = value;
-        }
       }
     }
 
@@ -220,13 +252,24 @@ export class SubmissionsService {
       });
     }
 
-    return {
+    const response = {
       message: 'Submission received successfully',
       id: submission._id.toString(),
     };
+
+    if (redisIdempotencyKey) {
+      await this.redisService.set(redisIdempotencyKey, JSON.stringify(response), 86400);
+    }
+
+    return response;
   }
 
-  async getDataView(userId: string, formId: string, tenantId?: string): Promise<FormDataViewDto> {
+  async getDataView(
+    userId: string,
+    formId: string,
+    tenantId?: string,
+    query?: GetFormDataQueryDto,
+  ): Promise<FormDataViewDto> {
     if (!Types.ObjectId.isValid(formId)) {
       throw new NotFoundException('Form not found');
     }
@@ -246,21 +289,44 @@ export class SubmissionsService {
       .sort({ versionNumber: 1 })
       .exec();
 
-    // Query all submissions for this form with tenant scoping
+    const versionMap = new Map<string, number>();
+    const versionNumberToIdMap = new Map<number, string>();
+    for (const v of allVersions) {
+      versionMap.set(v._id.toString(), v.versionNumber);
+      versionNumberToIdMap.set(v.versionNumber, v._id.toString());
+    }
+
+    // Query all submissions for this form with tenant and version scoping
     const subFilter: any = { formId: form._id };
     if (tenantId) {
       subFilter.tenantId = tenantId;
     }
 
-    const submissions = await this.formSubmissionModel
-      .find(subFilter)
-      .sort({ createdAt: -1 })
-      .exec();
-
-    const versionMap = new Map<string, number>();
-    for (const v of allVersions) {
-      versionMap.set(v._id.toString(), v.versionNumber);
+    if (query?.versionFilter && query.versionFilter !== 'all') {
+      const vNum = parseInt(query.versionFilter, 10);
+      const targetVersionId = versionNumberToIdMap.get(vNum);
+      if (targetVersionId) {
+        subFilter.versionId = targetVersionId;
+      }
     }
+
+    const totalCount = await this.formSubmissionModel.countDocuments(subFilter);
+
+    const isPaginated = query?.page !== undefined || query?.limit !== undefined;
+    const page = Math.max(1, Number(query?.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query?.limit) || 25));
+    const skip = (page - 1) * limit;
+    const sortDirection = query?.sortDirection === 'asc' ? 1 : -1;
+
+    let subQuery = this.formSubmissionModel
+      .find(subFilter)
+      .sort({ createdAt: sortDirection });
+
+    if (isPaginated) {
+      subQuery = subQuery.skip(skip).limit(limit);
+    }
+
+    const submissions = await subQuery.exec();
 
     // Unified Column Accumulator with alias awareness
     interface InternalColumn {
@@ -417,8 +483,12 @@ export class SubmissionsService {
 
     return {
       formId: form._id.toString(),
+      tenantId: form.tenantId,
       formName: form.name,
-      totalCount: rows.length,
+      totalCount,
+      page: isPaginated ? page : 1,
+      pageSize: isPaginated ? limit : totalCount,
+      totalPages: isPaginated ? Math.ceil(totalCount / limit) || 1 : 1,
       columns: resultColumns,
       rows,
     };
